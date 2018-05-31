@@ -86,9 +86,11 @@ mode. Strict mode requires TLS configuration.
 
 All metrics have the following tags:
 
- - host (ip address or hostname of the agent on which they run)
- - task_name (the name given by the user to the workload)
  - container_id (a unique identifer given by mesos to the workload's container)
+ - executor_id
+ - executor_name
+ - framework_id 
+ - source
 
 ### Example Output:
 
