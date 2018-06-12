@@ -15,10 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	healthyMetrics = make(map[string]interface{})
-)
-
 func TestGather(t *testing.T) {
 	testCases := []struct {
 		fixture string
