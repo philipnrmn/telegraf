@@ -100,6 +100,7 @@ func cFields(c agent.Response_GetContainers_Container) map[string]interface{} {
 // cTags extracts relevant metadata from a Container object as a map of tags
 func cTags(c agent.Response_GetContainers_Container) map[string]string {
 	results := make(map[string]string)
+	// TODO expand tags to service name and task name by retrieving state
 	// results["service_name"] = *c.FrameworkName
 	results["executor_name"] = *c.ExecutorName
 	// results["task_name"] = *rs.TaskName
