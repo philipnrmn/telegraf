@@ -11,14 +11,10 @@ package dcos_containers
 //go:generate go run cmd/gen.go
 
 import (
-	"bytes"
-	"encoding/csv"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"strconv"
 	"testing"
 
 	"github.com/influxdata/telegraf/testutil"
@@ -28,28 +24,37 @@ import (
 func TestGather(t *testing.T) {
 	testCases := []struct {
 		fixture string
-		err     bool
+		fields  map[string]interface{}
 	}{
-		{"empty", false},
-		{"healthy", false},
+		{"empty", map[string]interface{}{}},
+		{"healthy", map[string]interface{}{
+			"cpus_limit":               8.25,
+			"cpus_nr_periods":          uint32(769021),
+			"cpus_nr_throttled":        uint32(1046),
+			"cpus_system_time_secs":    34501.45,
+			"cpus_throttled_time_secs": 352.597023453,
+			"cpus_user_time_secs":      96348.84,
+			"mem_anon_bytes":           uint64(4845449216),
+			"mem_file_bytes":           uint64(260165632),
+			"mem_limit_bytes":          uint64(7650410496),
+			"mem_mapped_file_bytes":    uint64(7159808),
+			"mem_rss_bytes":            uint64(5105614848),
+		}},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.fixture, func(t *testing.T) {
 			var acc testutil.Accumulator
-			expectedFields := loadResults(t, tc.fixture)
+			expectedFields := tc.fields
+
 			server, teardown := startTestServer(t, tc.fixture)
 			defer teardown()
 
 			dc := DCOSContainers{AgentUrl: server.URL}
 
 			err := acc.GatherError(dc.Gather)
-			if tc.err {
-				assert.NotNil(t, err)
-				return
-			}
-
 			assert.Nil(t, err)
+			// Test that all expected fields are present
 			if len(expectedFields) > 0 {
 				acc.AssertContainsFields(t, "dcos_containers", expectedFields)
 			}
@@ -60,37 +65,20 @@ func TestGather(t *testing.T) {
 }
 
 // startTestServer starts a server and serves the specified fixture's content
-// at /monitor/statistics
+// at /api/v1
 func startTestServer(t *testing.T, fixture string) (*httptest.Server, func()) {
-	content := loadFixture(t, fixture+".json")
+	content := loadFixture(t, fixture+".bin")
 
 	router := http.NewServeMux()
-	router.HandleFunc("/monitor/statistics", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/api/v1", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-protobuf")
 		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Content-Type", "application/json")
 		w.Write(content)
 	})
 	server := httptest.NewServer(router)
 
 	return server, server.Close
-}
 
-// loadResults reads the specified fixture as a CSV
-func loadResults(t *testing.T, fixture string) map[string]interface{} {
-	results := make(map[string]interface{})
-	body := loadFixture(t, fixture+".csv")
-	r := csv.NewReader(bytes.NewReader(body))
-	for {
-		record, err := r.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		results[record[0]] = parseCsvValue(record[1])
-	}
-	return results
 }
 
 // loadFixture retrieves data from a file in ./testdata
@@ -101,16 +89,4 @@ func loadFixture(t *testing.T, filename string) []byte {
 		t.Fatal(err)
 	}
 	return bytes
-}
-
-// parseCsvValue casts a string to int or float if possible,
-// returning the original string if not
-func parseCsvValue(in string) interface{} {
-	if v, err := strconv.ParseInt(in, 10, 64); err == nil {
-		return v
-	}
-	if v, err := strconv.ParseFloat(in, 64); err == nil {
-		return v
-	}
-	return in
 }
