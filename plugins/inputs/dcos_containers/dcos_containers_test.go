@@ -63,6 +63,8 @@ func TestGather(t *testing.T) {
 			// Test that all expected fields are present
 			if len(tc.fields) > 0 {
 				acc.AssertContainsTaggedFields(t, "dcos_containers", tc.fields, tc.tags)
+			} else {
+				acc.AssertDoesNotContainMeasurement(t, "dcos_containers")
 			}
 			// TODO test timestamps
 		})
