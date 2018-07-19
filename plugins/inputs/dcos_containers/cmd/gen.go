@@ -12,22 +12,25 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 
 	"github.com/mesos/mesos-go/api/v1/lib/agent"
 )
 
 func main() {
-	files, err := ioutil.ReadDir("./testdata")
-	barf(err)
+	// files, err := ioutil.ReadDir("./testdata")
 
-	for _, f := range files {
-		fName := f.Name()
+	err := filepath.Walk("./testdata", func(fPath string, info os.FileInfo, err error) error {
+		barf(err)
+		if info.IsDir() {
+			return nil
+		}
+
+		fName := info.Name()
 		if filepath.Ext(fName) == ".json" {
-			fPath := filepath.Join(".", "testdata", fName)
-			oName := fName[:len(fName)-4] + "bin"
-			oPath := filepath.Join(".", "testdata", oName)
-			log.Println("Converting", fName, "to proto as", oName)
+			oPath := fPath[:len(fPath)-4] + "bin"
+			log.Println("Converting", fPath, "to proto as", oPath)
 
 			var buf agent.Response
 			jsonData, err := ioutil.ReadFile(fPath)
@@ -40,9 +43,11 @@ func main() {
 			err = ioutil.WriteFile(oPath, protoData, 0644)
 			barf(err)
 		}
-	}
-	log.Println("Conversion complete.")
 
+		return nil
+	})
+	barf(err)
+	log.Println("Conversion complete.")
 }
 
 // barf will panic if an error occurred
