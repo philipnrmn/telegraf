@@ -11,6 +11,7 @@ package dcos_containers
 //go:generate go run cmd/gen.go
 
 import (
+	"bytes"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -20,6 +21,9 @@ import (
 	"github.com/influxdata/telegraf/testutil"
 	"github.com/stretchr/testify/assert"
 )
+
+// raw protobuf request types:
+var GET_CONTAINERS = []byte{8, 10}
 
 func TestGather(t *testing.T) {
 	testCases := []struct {
@@ -74,13 +78,22 @@ func TestGather(t *testing.T) {
 // startTestServer starts a server and serves the specified fixture's content
 // at /api/v1
 func startTestServer(t *testing.T, fixture string) (*httptest.Server, func()) {
-	content := loadFixture(t, fixture+".bin")
+	containers := loadFixture(t, filepath.Join(fixture, "containers.bin"))
+	// state := loadFixture(t, filepath.Join(fixture, "state.bin"))
 
 	router := http.NewServeMux()
 	router.HandleFunc("/api/v1", func(w http.ResponseWriter, r *http.Request) {
+		body, _ := ioutil.ReadAll(r.Body)
+
 		w.Header().Set("Content-Type", "application/x-protobuf")
 		w.WriteHeader(http.StatusOK)
-		w.Write(content)
+		if bytes.Equal(body, GET_CONTAINERS) {
+			w.Write(containers)
+			return
+		}
+
+		panic("Body contained an unknown request: " + string(body))
+
 	})
 	server := httptest.NewServer(router)
 
