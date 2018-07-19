@@ -17,6 +17,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/influxdata/telegraf/testutil"
 	"github.com/stretchr/testify/assert"
@@ -30,8 +31,9 @@ func TestGather(t *testing.T) {
 		fixture string
 		fields  map[string]interface{}
 		tags    map[string]string
+		ts      int64
 	}{
-		{"empty", map[string]interface{}{}, map[string]string{}},
+		{"empty", map[string]interface{}{}, map[string]string{}, 0},
 		{
 			"healthy",
 			map[string]interface{}{
@@ -50,6 +52,7 @@ func TestGather(t *testing.T) {
 			map[string]string{
 				"executor_name": "executor",
 			},
+			1388534400,
 		},
 	}
 
@@ -64,13 +67,14 @@ func TestGather(t *testing.T) {
 
 			err := acc.GatherError(dc.Gather)
 			assert.Nil(t, err)
-			// Test that all expected fields are present
 			if len(tc.fields) > 0 {
+				// Test that all expected fields are present
 				acc.AssertContainsTaggedFields(t, "dcos_containers", tc.fields, tc.tags)
+				// Test that the timestamp is present and correct
+				assertHasTimestamp(t, acc, "dcos_containers", tc.ts)
 			} else {
 				acc.AssertDoesNotContainMeasurement(t, "dcos_containers")
 			}
-			// TODO test timestamps
 		})
 	}
 }
@@ -91,9 +95,7 @@ func startTestServer(t *testing.T, fixture string) (*httptest.Server, func()) {
 			w.Write(containers)
 			return
 		}
-
 		panic("Body contained an unknown request: " + string(body))
-
 	})
 	server := httptest.NewServer(router)
 
@@ -109,4 +111,18 @@ func loadFixture(t *testing.T, filename string) []byte {
 		t.Fatal(err)
 	}
 	return bytes
+}
+
+// assertHasTimestamp checks that the specified measurement has teh expected ts
+func assertHasTimestamp(t *testing.T, acc testutil.Accumulator, measurement string, ts int64) {
+	expected := time.Unix(ts, 0)
+	if acc.HasTimestamp(measurement, expected) {
+		return
+	}
+	if m, ok := acc.Get(measurement); ok {
+		actual := m.Time
+		t.Errorf("%s had a bad timestamp: expected %q; got %q", measurement, expected, actual)
+		return
+	}
+	t.Errorf("%s could not be retrieved while attempting to assert it had timestamp", measurement)
 }
