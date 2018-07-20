@@ -37,7 +37,7 @@ func TestGather(t *testing.T) {
 	}{
 		{"empty", map[string]interface{}{}, map[string]string{}, 0, map[string]containerInfo{}},
 		{
-			"healthy",
+			"normal",
 			map[string]interface{}{
 				"cpus_limit":               8.25,
 				"cpus_nr_periods":          uint32(769021),
