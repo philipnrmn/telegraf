@@ -160,10 +160,17 @@ func (dc *DCOSContainers) reconcile(gc *agent.Response_GetContainers, gs *agent.
 				}
 			}
 
+			// TODO exercise this code in a test
+			eName := ""
+			// executor name can be missing
+			if executor.Name != nil {
+				eName = *executor.Name
+			}
+
 			dc.containers[cid] = containerInfo{
 				containerID:   cid,
+				executorName:  eName,
 				frameworkName: framework.Name,
-				executorName:  *executor.Name,
 				taskName:      task.Name,
 			}
 		}
