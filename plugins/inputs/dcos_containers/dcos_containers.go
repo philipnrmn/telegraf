@@ -240,6 +240,8 @@ func init() {
 	log.Println("dcos_containers::init")
 	// TODO: request to mesos to ensure that it's reachable
 	inputs.Add("dcos_containers", func() telegraf.Input {
-		return &DCOSContainers{}
+		return &DCOSContainers{
+			containers: make(map[string]containerInfo),
+		}
 	})
 }
