@@ -11,6 +11,7 @@ import (
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 
+	"github.com/mesos/mesos-go/api/v1/lib"
 	"github.com/mesos/mesos-go/api/v1/lib/agent"
 	"github.com/mesos/mesos-go/api/v1/lib/agent/calls"
 	"github.com/mesos/mesos-go/api/v1/lib/httpcli"
@@ -22,9 +23,21 @@ const sampleConfig = `
 agent_url = "http://127.0.0.1:5051"
 `
 
+// containerInfo is a tuple of metadata which we use to map a container ID to
+// information about the task, executor and framework.
+type containerInfo struct {
+	containerID   string
+	taskName      string
+	executorName  string
+	frameworkName string
+}
+
 // DCOSContainers describes the options available to this plugin
 type DCOSContainers struct {
 	AgentUrl string
+	// containers maps container ID to related metadata obtained from state
+	containers map[string]containerInfo
+	// TODO configurable timeouts
 }
 
 // SampleConfig returns the default configuration
@@ -41,47 +54,88 @@ func (dc *DCOSContainers) Description() string {
 // It is invoked on a schedule (default every 10s) by the telegraf runtime.
 func (dc *DCOSContainers) Gather(acc telegraf.Accumulator) error {
 	// TODO: timeout
-	// TODO: error handling
 
 	uri := dc.AgentUrl + "/api/v1"
 	cli := httpagent.NewSender(httpcli.New(httpcli.Endpoint(uri)).Send)
 	ctx := context.Background()
 
-	resp, err := cli.Send(ctx, calls.NonStreaming(calls.GetContainers()))
-
-	defer func() {
-		if resp != nil {
-			resp.Close()
-		}
-	}()
-	if err != nil {
-		return err
+	gc := dc.getContainers(ctx, cli)
+	dc.prune(gc)
+	if !dc.isConsistent(gc) {
+		state := dc.getState(ctx, cli)
+		dc.reconcile(state)
 	}
-	for {
-		var r agent.Response
-		if err := resp.Decode(&r); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		if t := r.GetType(); t == agent.Response_GET_CONTAINERS {
-			gc := r.GetGetContainers()
-			for _, c := range gc.Containers {
-				acc.AddFields("dcos_containers", cFields(c), cTags(c), cTS(c))
-			}
-		} else {
-			// TODO better error
-			fmt.Println("not getcontainers", t, r)
+
+	for _, c := range gc.Containers {
+		if info, ok := dc.containers[c.ContainerID.Value]; ok {
+			acc.AddFields("dcos_containers", cFields(c), cTags(info), cTS(c))
 		}
 	}
 
 	return nil
 }
 
+// getContainers requests a list of containers from the operator API
+func (dc *DCOSContainers) getContainers(ctx context.Context, cli calls.Sender) *agent.Response_GetContainers {
+	// TODO error handling
+	resp, _ := cli.Send(ctx, calls.NonStreaming(calls.GetContainers()))
+	r, _ := processResponse(resp, agent.Response_GET_CONTAINERS)
+
+	return r.GetGetContainers()
+}
+
+// getState requests state from the operator API
+func (dc *DCOSContainers) getState(ctx context.Context, cli calls.Sender) *agent.Response_GetState {
+	// TODO
+	return nil
+}
+
+// prune removes container info for stale containers
+func (dc *DCOSContainers) prune(containers *agent.Response_GetContainers) {
+	// TODO
+	return
+}
+
+// isConsistent returns true if container info is available for all containers
+func (dc *DCOSContainers) isConsistent(gc *agent.Response_GetContainers) bool {
+	// TODO
+	return true
+}
+
+// reconcile adds newly discovered container info to container info
+func (dc *DCOSContainers) reconcile(gs *agent.Response_GetState) {
+	// TODO
+	return
+}
+
+// processResponse reads the response from a triggered request, verifies its
+// type, and returns an agent response
+func processResponse(resp mesos.Response, t agent.Response_Type) (agent.Response, error) {
+	var r agent.Response
+	defer func() {
+		if resp != nil {
+			resp.Close()
+		}
+	}()
+	for {
+		if err := resp.Decode(&r); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return r, err
+		}
+	}
+	if r.GetType() != t {
+		return r, nil
+	} else {
+		return r, fmt.Errorf("processResponse expected type %q, got %q", t, r.GetType())
+	}
+}
+
 // cFields flattens a Container object into a map of metric labels and values
 func cFields(c agent.Response_GetContainers_Container) map[string]interface{} {
 	results := make(map[string]interface{})
+	// TODO account for all possible fields in ResourceStatistics
 	rs := c.ResourceStatistics
 	results["cpus_limit"] = *rs.CPUsLimit
 	results["cpus_nr_periods"] = *rs.CPUsNrPeriods
@@ -98,12 +152,11 @@ func cFields(c agent.Response_GetContainers_Container) map[string]interface{} {
 }
 
 // cTags extracts relevant metadata from a Container object as a map of tags
-func cTags(c agent.Response_GetContainers_Container) map[string]string {
+func cTags(info containerInfo) map[string]string {
 	results := make(map[string]string)
-	// TODO expand tags to service name and task name by retrieving state
-	// results["service_name"] = *c.FrameworkName
-	results["executor_name"] = *c.ExecutorName
-	// results["task_name"] = *rs.TaskName
+	results["service_name"] = info.frameworkName
+	results["executor_name"] = info.executorName
+	results["task_name"] = info.taskName
 	return results
 }
 

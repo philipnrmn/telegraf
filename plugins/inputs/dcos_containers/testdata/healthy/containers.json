@@ -3,6 +3,9 @@
   "get_containers": {
     "containers": [
       {
+        "container_id": {
+          "value": "abc123"
+        },
         "framework_id": {
           "value": "framework.id"
         },

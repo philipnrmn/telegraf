@@ -32,8 +32,10 @@ func TestGather(t *testing.T) {
 		fields  map[string]interface{}
 		tags    map[string]string
 		ts      int64
+		// containers prepopulates the plugin with container info
+		containers map[string]containerInfo
 	}{
-		{"empty", map[string]interface{}{}, map[string]string{}, 0},
+		{"empty", map[string]interface{}{}, map[string]string{}, 0, map[string]containerInfo{}},
 		{
 			"healthy",
 			map[string]interface{}{
@@ -50,9 +52,19 @@ func TestGather(t *testing.T) {
 				"mem_rss_bytes":            uint64(5105614848),
 			},
 			map[string]string{
+				"service_name":  "framework",
 				"executor_name": "executor",
+				"task_name":     "task",
 			},
 			1388534400,
+			map[string]containerInfo{
+				"abc123": containerInfo{
+					containerID:   "abc123",
+					taskName:      "task",
+					executorName:  "executor",
+					frameworkName: "framework",
+				},
+			},
 		},
 	}
 
@@ -63,14 +75,19 @@ func TestGather(t *testing.T) {
 			server, teardown := startTestServer(t, tc.fixture)
 			defer teardown()
 
-			dc := DCOSContainers{AgentUrl: server.URL}
+			dc := DCOSContainers{
+				AgentUrl:   server.URL,
+				containers: tc.containers,
+			}
 
 			err := acc.GatherError(dc.Gather)
 			assert.Nil(t, err)
 			if len(tc.fields) > 0 {
-				// Test that all expected fields are present
+				// all expected fields are present
+				acc.AssertContainsFields(t, "dcos_containers", tc.fields)
+				// all expected tags are present
 				acc.AssertContainsTaggedFields(t, "dcos_containers", tc.fields, tc.tags)
-				// Test that the timestamp is present and correct
+				// the expected timestamp is present
 				assertHasTimestamp(t, acc, "dcos_containers", tc.ts)
 			} else {
 				acc.AssertDoesNotContainMeasurement(t, "dcos_containers")
