@@ -24,7 +24,10 @@ import (
 )
 
 // raw protobuf request types:
-var GET_CONTAINERS = []byte{8, 10}
+var (
+	GET_CONTAINERS = []byte{8, 10}
+	GET_STATE      = []byte{8, 9}
+)
 
 func TestGather(t *testing.T) {
 	testCases := []struct {
@@ -122,9 +125,6 @@ func TestGather(t *testing.T) {
 // startTestServer starts a server and serves the specified fixture's content
 // at /api/v1
 func startTestServer(t *testing.T, fixture string) (*httptest.Server, func()) {
-	containers := loadFixture(t, filepath.Join(fixture, "containers.bin"))
-	// state := loadFixture(t, filepath.Join(fixture, "state.bin"))
-
 	router := http.NewServeMux()
 	router.HandleFunc("/api/v1", func(w http.ResponseWriter, r *http.Request) {
 		body, _ := ioutil.ReadAll(r.Body)
@@ -132,7 +132,13 @@ func startTestServer(t *testing.T, fixture string) (*httptest.Server, func()) {
 		w.Header().Set("Content-Type", "application/x-protobuf")
 		w.WriteHeader(http.StatusOK)
 		if bytes.Equal(body, GET_CONTAINERS) {
+			containers := loadFixture(t, filepath.Join(fixture, "containers.bin"))
 			w.Write(containers)
+			return
+		}
+		if bytes.Equal(body, GET_STATE) {
+			state := loadFixture(t, filepath.Join(fixture, "state.bin"))
+			w.Write(state)
 			return
 		}
 		panic("Body contained an unknown request: " + string(body))

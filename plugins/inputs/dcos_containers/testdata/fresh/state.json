@@ -54,7 +54,7 @@
                             "uuid": "VhSyIEWERZ+TACh/C8069A==",
                             "container_status": {
                                 "container_id": {
-                                    "value": "e51d2265-e21d-4e48-9e98-92cbad7455f3"
+                                    "value": "abc123"
                                 },
                                 "network_infos": [
                                     {
@@ -216,7 +216,7 @@
                                 }
                             }
                         ],
-                        "name": "Command Executor (Task: task.484807ed-8af9-11e8-8d69-5ab0267d490f) (Command: sh -c 'sleep 123455')",
+                        "name": "executor",
                         "source": "task.484807ed-8af9-11e8-8d69-5ab0267d490f",
                         "discovery": {
                             "visibility": "FRAMEWORK",
@@ -240,7 +240,7 @@
                 {
                     "framework_info": {
                         "user": "root",
-                        "name": "marathon",
+                        "name": "framework",
                         "id": {
                             "value": "577637a3-cbf2-4f38-a227-578b0783eabf-0001"
                         },

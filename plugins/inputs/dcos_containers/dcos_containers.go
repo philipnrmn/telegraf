@@ -63,12 +63,15 @@ func (dc *DCOSContainers) Gather(acc telegraf.Accumulator) error {
 	dc.prune(gc)
 	if !dc.isConsistent(gc) {
 		state := dc.getState(ctx, cli)
-		dc.reconcile(state)
+		dc.reconcile(gc, state)
 	}
 
 	for _, c := range gc.Containers {
 		if info, ok := dc.containers[c.ContainerID.Value]; ok {
 			acc.AddFields("dcos_containers", cFields(c), cTags(info), cTS(c))
+		} else {
+			// TODO better warning
+			fmt.Println("could not record metrics for" + c.ContainerID.Value + "as no metadata was found in /state")
 		}
 	}
 
@@ -86,8 +89,11 @@ func (dc *DCOSContainers) getContainers(ctx context.Context, cli calls.Sender) *
 
 // getState requests state from the operator API
 func (dc *DCOSContainers) getState(ctx context.Context, cli calls.Sender) *agent.Response_GetState {
-	// TODO
-	return nil
+	// TODO error handling
+	resp, _ := cli.Send(ctx, calls.NonStreaming(calls.GetState()))
+	r, _ := processResponse(resp, agent.Response_GET_STATE)
+
+	return r.GetGetState()
 }
 
 // prune removes container info for stale containers
@@ -98,14 +104,70 @@ func (dc *DCOSContainers) prune(containers *agent.Response_GetContainers) {
 
 // isConsistent returns true if container info is available for all containers
 func (dc *DCOSContainers) isConsistent(gc *agent.Response_GetContainers) bool {
-	// TODO
+	for _, c := range gc.Containers {
+		if _, ok := dc.containers[c.ContainerID.Value]; !ok {
+			return false
+		}
+	}
 	return true
 }
 
 // reconcile adds newly discovered container info to container info
-func (dc *DCOSContainers) reconcile(gs *agent.Response_GetState) {
-	// TODO
-	return
+func (dc *DCOSContainers) reconcile(gc *agent.Response_GetContainers, gs *agent.Response_GetState) {
+	gt := gs.GetGetTasks()
+	tasks := gt.GetLaunchedTasks()
+	ge := gs.GetGetExecutors()
+	executors := ge.Executors
+	gf := gs.GetGetFrameworks()
+	frameworks := gf.Frameworks
+
+	for _, c := range gc.Containers {
+		cid := c.ContainerID.Value
+		var eid string
+
+		var task mesos.Task
+		var executor mesos.ExecutorInfo
+		var framework mesos.FrameworkInfo
+
+		if _, ok := dc.containers[cid]; !ok {
+
+			// find task:
+			for _, t := range tasks {
+				if len(t.Statuses) == 0 {
+					continue
+				}
+				s := t.Statuses[0]
+				if s.ContainerStatus.ContainerID.Value == cid {
+					eid = s.ExecutorID.Value
+					task = t
+					break
+				}
+			}
+
+			// find executor:
+			for _, e := range executors {
+				if e.ExecutorInfo.ExecutorID.Value == eid {
+					executor = e.ExecutorInfo
+					break
+				}
+			}
+
+			// find framework:
+			for _, f := range frameworks {
+				if f.FrameworkInfo.ID.Value == task.FrameworkID.Value {
+					framework = f.FrameworkInfo
+					break
+				}
+			}
+
+			dc.containers[cid] = containerInfo{
+				containerID:   cid,
+				frameworkName: framework.Name,
+				executorName:  *executor.Name,
+				taskName:      task.Name,
+			}
+		}
+	}
 }
 
 // processResponse reads the response from a triggered request, verifies its
