@@ -43,6 +43,7 @@ github.com/kardianos/osext c2c54e542fb797ad986b31721e1baedf214ca413
 github.com/kardianos/service 6d3a0ee7d3425d9d835debc51a0ca1ffa28f4893
 github.com/kballard/go-shellquote d8ec1a69a250a17bb0e419c386eac1f3711dc142
 github.com/matttproud/golang_protobuf_extensions c12348ce28de40eed0136aa2b644d0ee0650e56c
+github.com/mesos/mesos-go 2928a8dad66db875eae3f8b0d9d387ae41934832
 github.com/Microsoft/ApplicationInsights-Go 3612f58550c1de70f1a110c78c830e55f29aa65d
 github.com/Microsoft/go-winio ce2922f643c8fd76b46cadc7f404a06282678b34
 github.com/miekg/dns 99f84ae56e75126dd77e5de4fae2ea034a468ca1
@@ -61,6 +62,7 @@ github.com/pierrec/lz4 5c9560bfa9ace2bf86080bf40d46b34ae44604df
 github.com/pierrec/xxHash 5a004441f897722c627870a981d02b29924215fa
 github.com/pkg/errors 645ef00459ed84a119197bfb8d8205042c6df63d
 github.com/pmezard/go-difflib/difflib 792786c7400a136282c1664665ae0a8db921c6c2
+github.com/pquerna/ffjson/fflib/v1 af8b230fcd2007c7095168ca8ab94c68b60840c6
 github.com/prometheus/client_golang c317fb74746eac4fc65fe3909195f4cf67c5562a
 github.com/prometheus/client_model fa8ad6fec33561be4280a8f0514318c79d7f6cb6
 github.com/prometheus/common dd2f054febf4a6c00f2343686efb775948a8bff4
