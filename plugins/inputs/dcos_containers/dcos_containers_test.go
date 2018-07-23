@@ -29,19 +29,30 @@ var (
 	GET_STATE      = []byte{8, 9}
 )
 
-func TestGather(t *testing.T) {
-	testCases := []struct {
-		fixture string
-		fields  map[string]interface{}
-		tags    map[string]string
-		ts      int64
-		// containers prepopulates the plugin with container info
-		containers map[string]containerInfo
-	}{
-		{"empty", map[string]interface{}{}, map[string]string{}, 0, map[string]containerInfo{}},
-		{
-			"normal",
-			map[string]interface{}{
+type testCase struct {
+	fixture string
+	fields  map[string]interface{}
+	tags    map[string]string
+	ts      int64
+	// cachedContainers prepopulates the plugin with container info
+	cachedContainers map[string]containerInfo
+	// containers is how the dc.containers should look after
+	// metrics are retrieved
+	containers map[string]containerInfo
+}
+
+var (
+	TEST_CASES = []testCase{
+		testCase{
+			fixture:          "empty",
+			fields:           map[string]interface{}{},
+			tags:             map[string]string{},
+			ts:               0,
+			cachedContainers: map[string]containerInfo{},
+		},
+		testCase{
+			fixture: "normal",
+			fields: map[string]interface{}{
 				"cpus_limit":               8.25,
 				"cpus_nr_periods":          uint32(769021),
 				"cpus_nr_throttled":        uint32(1046),
@@ -54,24 +65,22 @@ func TestGather(t *testing.T) {
 				"mem_mapped_file_bytes":    uint64(7159808),
 				"mem_rss_bytes":            uint64(5105614848),
 			},
-			map[string]string{
+			tags: map[string]string{
 				"service_name":  "framework",
 				"executor_name": "executor",
 				"task_name":     "task",
 			},
-			1388534400,
-			map[string]containerInfo{
-				"abc123": containerInfo{
-					containerID:   "abc123",
-					taskName:      "task",
-					executorName:  "executor",
-					frameworkName: "framework",
-				},
+			ts: 1388534400,
+			cachedContainers: map[string]containerInfo{
+				"abc123": containerInfo{"abc123", "task", "executor", "framework"},
+			},
+			containers: map[string]containerInfo{
+				"abc123": containerInfo{"abc123", "task", "executor", "framework"},
 			},
 		},
-		{
-			"fresh",
-			map[string]interface{}{
+		testCase{
+			fixture: "fresh",
+			fields: map[string]interface{}{
 				"cpus_limit":               8.25,
 				"cpus_nr_periods":          uint32(769021),
 				"cpus_nr_throttled":        uint32(1046),
@@ -84,17 +93,32 @@ func TestGather(t *testing.T) {
 				"mem_mapped_file_bytes":    uint64(7159808),
 				"mem_rss_bytes":            uint64(5105614848),
 			},
-			map[string]string{
+			tags: map[string]string{
 				"service_name":  "framework",
 				"executor_name": "executor",
 				"task_name":     "task",
 			},
-			1388534400,
-			map[string]containerInfo{},
+			ts:               1388534400,
+			cachedContainers: map[string]containerInfo{},
+			containers: map[string]containerInfo{
+				"abc123": containerInfo{"abc123", "task", "executor", "framework"},
+			},
+		},
+		testCase{
+			fixture: "stale",
+			fields:  map[string]interface{}{},
+			tags:    map[string]string{},
+			ts:      0,
+			cachedContainers: map[string]containerInfo{
+				"abc123": containerInfo{"abc123", "task", "executor", "framework"},
+			},
+			containers: map[string]containerInfo{},
 		},
 	}
+)
 
-	for _, tc := range testCases {
+func TestGather(t *testing.T) {
+	for _, tc := range TEST_CASES {
 		t.Run(tc.fixture, func(t *testing.T) {
 			var acc testutil.Accumulator
 
@@ -103,7 +127,7 @@ func TestGather(t *testing.T) {
 
 			dc := DCOSContainers{
 				AgentUrl:   server.URL,
-				containers: tc.containers,
+				containers: tc.cachedContainers,
 			}
 
 			err := acc.GatherError(dc.Gather)
@@ -117,6 +141,10 @@ func TestGather(t *testing.T) {
 				assertHasTimestamp(t, acc, "dcos_containers", tc.ts)
 			} else {
 				acc.AssertDoesNotContainMeasurement(t, "dcos_containers")
+			}
+
+			if tc.containers != nil {
+				assertHasContainers(t, dc, tc.containers)
 			}
 		})
 	}
@@ -159,7 +187,7 @@ func loadFixture(t *testing.T, filename string) []byte {
 	return bytes
 }
 
-// assertHasTimestamp checks that the specified measurement has teh expected ts
+// assertHasTimestamp checks that the specified measurement has the expected ts
 func assertHasTimestamp(t *testing.T, acc testutil.Accumulator, measurement string, ts int64) {
 	expected := time.Unix(ts, 0)
 	if acc.HasTimestamp(measurement, expected) {
@@ -171,4 +199,18 @@ func assertHasTimestamp(t *testing.T, acc testutil.Accumulator, measurement stri
 		return
 	}
 	t.Errorf("%s could not be retrieved while attempting to assert it had timestamp", measurement)
+}
+
+// assertHasContainers checks that DCOSContainers has the expected container info
+func assertHasContainers(t *testing.T, dc DCOSContainers, expected map[string]containerInfo) {
+	if len(dc.containers) != len(expected) {
+		t.Errorf("expected container info cache to be of size %d, but it was %d", len(expected), len(dc.containers))
+		return
+	}
+	for cid, _ := range expected {
+		if _, ok := dc.containers[cid]; !ok {
+			t.Errorf("expected container %s to be present in cache, but it was not", cid)
+			return
+		}
+	}
 }

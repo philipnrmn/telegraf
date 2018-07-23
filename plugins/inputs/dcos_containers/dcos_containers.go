@@ -62,6 +62,7 @@ func (dc *DCOSContainers) Gather(acc telegraf.Accumulator) error {
 	gc := dc.getContainers(ctx, cli)
 	dc.prune(gc)
 	if !dc.isConsistent(gc) {
+		// new containers were found
 		state := dc.getState(ctx, cli)
 		dc.reconcile(gc, state)
 	}
@@ -71,7 +72,7 @@ func (dc *DCOSContainers) Gather(acc telegraf.Accumulator) error {
 			acc.AddFields("dcos_containers", cFields(c), cTags(info), cTS(c))
 		} else {
 			// TODO better warning
-			fmt.Println("could not record metrics for" + c.ContainerID.Value + "as no metadata was found in /state")
+			fmt.Println("could not record metrics for", c.ContainerID.Value, "as no metadata was found in /state")
 		}
 	}
 
@@ -97,13 +98,30 @@ func (dc *DCOSContainers) getState(ctx context.Context, cli calls.Sender) *agent
 }
 
 // prune removes container info for stale containers
-func (dc *DCOSContainers) prune(containers *agent.Response_GetContainers) {
-	// TODO
+func (dc *DCOSContainers) prune(gc *agent.Response_GetContainers) {
+	for cid, _ := range dc.containers {
+		found := false
+		for _, c := range gc.Containers {
+			if cid == c.ContainerID.Value {
+				found = true
+				break
+			}
+		}
+		if !found {
+			delete(dc.containers, cid)
+		}
+	}
 	return
 }
 
 // isConsistent returns true if container info is available for all containers
 func (dc *DCOSContainers) isConsistent(gc *agent.Response_GetContainers) bool {
+	if gc.Containers == nil && len(dc.containers) == 0 {
+		return true
+	}
+	if len(gc.Containers) != len(dc.containers) {
+		return false
+	}
 	for _, c := range gc.Containers {
 		if _, ok := dc.containers[c.ContainerID.Value]; !ok {
 			return false
@@ -129,6 +147,7 @@ func (dc *DCOSContainers) reconcile(gc *agent.Response_GetContainers, gs *agent.
 		var executor mesos.ExecutorInfo
 		var framework mesos.FrameworkInfo
 
+		// TODO break these into separate methods
 		if _, ok := dc.containers[cid]; !ok {
 
 			// find task:
@@ -166,7 +185,6 @@ func (dc *DCOSContainers) reconcile(gc *agent.Response_GetContainers, gs *agent.
 			if executor.Name != nil {
 				eName = *executor.Name
 			}
-
 			dc.containers[cid] = containerInfo{
 				containerID:   cid,
 				executorName:  eName,
