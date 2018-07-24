@@ -30,6 +30,7 @@ type containerInfo struct {
 	taskName      string
 	executorName  string
 	frameworkName string
+	taskLabels    map[string]string
 }
 
 // DCOSContainers describes the options available to this plugin
@@ -165,6 +166,8 @@ func (dc *DCOSContainers) reconcile(gc *agent.Response_GetContainers, gs *agent.
 					break
 				}
 			}
+
+			// TODO find task labels
 
 			// find framework:
 			for _, f := range frameworks {
