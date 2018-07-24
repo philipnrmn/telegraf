@@ -153,6 +153,13 @@ func (dc *DCOSContainers) reconcile(gc *agent.Response_GetContainers, gs *agent.
 					continue
 				}
 				s := t.Statuses[0]
+				// TODO exercise this code in a test
+				if s.ContainerStatus.ContainerID.Parent != nil {
+					if s.ContainerStatus.ContainerID.Parent.Value == cid {
+						task = t
+						break
+					}
+				}
 				if s.ContainerStatus.ContainerID.Value == cid {
 					task = t
 					break
