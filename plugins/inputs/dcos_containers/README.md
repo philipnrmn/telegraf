@@ -87,10 +87,9 @@ mode. Strict mode requires TLS configuration.
 All metrics have the following tags:
 
  - container_id (a unique identifer given by mesos to the workload's container)
- - executor_id
+ - task_name
  - executor_name
- - framework_id 
- - source
+ - service_name
 
 ### Example Output:
 
@@ -98,5 +97,5 @@ All metrics have the following tags:
 ```
 $ telegraf --config dcos.conf --input-filter dcos_container --test
 * Plugin: dcos_container
-    cpus,host=172.17.8.102,task_id=nginx,container_id=12377985-615c-4a1a-a491-721ce7cd807a user_time_secs=10,system_time_secs=1,limit=4,nr_periods=11045,nr_throttled=132,throttled_time_seconds=1 1453831884664956455
+    cpus,host=172.17.8.102,task_name=nginx-server-0,executor_name=nginx-server,service_name=nginx,container_id=12377985-615c-4a1a-a491-721ce7cd807a user_time_secs=10,system_time_secs=1,limit=4,nr_periods=11045,nr_throttled=132,throttled_time_seconds=1 1453831884664956455
 ```
