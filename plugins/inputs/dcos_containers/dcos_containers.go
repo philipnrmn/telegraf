@@ -134,17 +134,13 @@ func (dc *DCOSContainers) isConsistent(gc *agent.Response_GetContainers) bool {
 func (dc *DCOSContainers) reconcile(gc *agent.Response_GetContainers, gs *agent.Response_GetState) {
 	gt := gs.GetGetTasks()
 	tasks := gt.GetLaunchedTasks()
-	ge := gs.GetGetExecutors()
-	executors := ge.Executors
 	gf := gs.GetGetFrameworks()
 	frameworks := gf.Frameworks
 
 	for _, c := range gc.Containers {
 		cid := c.ContainerID.Value
-		var eid string
 
 		var task mesos.Task
-		var executor mesos.ExecutorInfo
 		var framework mesos.FrameworkInfo
 
 		// TODO break these into separate methods
@@ -157,16 +153,7 @@ func (dc *DCOSContainers) reconcile(gc *agent.Response_GetContainers, gs *agent.
 				}
 				s := t.Statuses[0]
 				if s.ContainerStatus.ContainerID.Value == cid {
-					eid = s.ExecutorID.Value
 					task = t
-					break
-				}
-			}
-
-			// find executor:
-			for _, e := range executors {
-				if e.ExecutorInfo.ExecutorID.Value == eid {
-					executor = e.ExecutorInfo
 					break
 				}
 			}
@@ -182,8 +169,8 @@ func (dc *DCOSContainers) reconcile(gc *agent.Response_GetContainers, gs *agent.
 			// TODO exercise this code in a test
 			eName := ""
 			// executor name can be missing
-			if executor.Name != nil {
-				eName = *executor.Name
+			if c.ExecutorName != nil {
+				eName = *c.ExecutorName
 			}
 			dc.containers[cid] = containerInfo{
 				containerID:   cid,
