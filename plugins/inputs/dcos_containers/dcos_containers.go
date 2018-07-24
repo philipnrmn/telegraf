@@ -139,6 +139,7 @@ func (dc *DCOSContainers) reconcile(gc *agent.Response_GetContainers, gs *agent.
 
 	for _, c := range gc.Containers {
 		cid := c.ContainerID.Value
+		fid := c.FrameworkID.Value
 
 		var task mesos.Task
 		var framework mesos.FrameworkInfo
@@ -160,7 +161,7 @@ func (dc *DCOSContainers) reconcile(gc *agent.Response_GetContainers, gs *agent.
 
 			// find framework:
 			for _, f := range frameworks {
-				if f.FrameworkInfo.ID.Value == task.FrameworkID.Value {
+				if f.FrameworkInfo.ID.Value == fid {
 					framework = f.FrameworkInfo
 					break
 				}

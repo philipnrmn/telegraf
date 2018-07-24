@@ -242,7 +242,7 @@
                         "user": "root",
                         "name": "framework",
                         "id": {
-                            "value": "577637a3-cbf2-4f38-a227-578b0783eabf-0001"
+                            "value": "framework.id"
                         },
                         "failover_timeout": 604800,
                         "checkpoint": true,
