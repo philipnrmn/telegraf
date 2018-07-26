@@ -11,8 +11,8 @@ generate it using `telegraf --usage dcos_containers`.
 ```toml
 # Telegraf plugin for gathering resource metrics about mesos containers
 [[inputs.dcos_containers]]
-  ## The address of the mesos agent
-  agent_address = "http://localhost:5051"
+  ## The URL of the mesos agent
+  mesos_agent_url = "http://localhost:5051"
 
   ## Optional TLS Config
   # tls_ca = "/etc/telegraf/ca.pem"

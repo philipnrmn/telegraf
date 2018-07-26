@@ -20,7 +20,7 @@ import (
 
 const sampleConfig = `
 ## The URL of the local mesos agent
-agent_url = "http://127.0.0.1:5051"
+mesos_agent_url = "http://127.0.0.1:5051"
 `
 
 // containerInfo is a tuple of metadata which we use to map a container ID to
@@ -35,7 +35,7 @@ type containerInfo struct {
 
 // DCOSContainers describes the options available to this plugin
 type DCOSContainers struct {
-	AgentUrl string
+	MesosAgentUrl string
 	// containers maps container ID to related metadata obtained from state
 	containers map[string]containerInfo
 	// TODO configurable timeouts
@@ -56,7 +56,7 @@ func (dc *DCOSContainers) Description() string {
 func (dc *DCOSContainers) Gather(acc telegraf.Accumulator) error {
 	// TODO: timeout
 
-	uri := dc.AgentUrl + "/api/v1"
+	uri := dc.MesosAgentUrl + "/api/v1"
 	cli := httpagent.NewSender(httpcli.New(httpcli.Endpoint(uri)).Send)
 	ctx := context.Background()
 

@@ -126,8 +126,8 @@ func TestGather(t *testing.T) {
 			defer teardown()
 
 			dc := DCOSContainers{
-				AgentUrl:   server.URL,
-				containers: tc.cachedContainers,
+				MesosAgentUrl: server.URL,
+				containers:    tc.cachedContainers,
 			}
 
 			err := acc.GatherError(dc.Gather)
