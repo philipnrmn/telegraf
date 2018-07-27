@@ -14,6 +14,9 @@ in Prometheus format.
   ## An array of Kubernetes services to scrape metrics from.
   # kubernetes_services = ["http://my-service-dns.my-namespace:9100/metrics"]
 
+	## The address of the local Mesos agent
+	# mesos_agent_address = "http://localhost:5051"
+
   ## Use bearer token for authorization
   # bearer_token = /path/to/bearer/token
 
@@ -36,6 +39,15 @@ by looking up all A records assigned to the hostname as described in
 
 This method can be used to locate all
 [Kubernetes headless services](https://kubernetes.io/docs/concepts/services-networking/service/#headless-services).
+
+#### Mesos Service Discovery
+
+If set, the mesos agent address parameter will enable service discovery for 
+mesos tasks. Service discovery works by retrieving a list of all running tasks
+from the agent and inspecting their port configurations.
+
+The address of any port labelled `"DCOS_METRICS_FORMAT":"prometheus"` will be
+scraped for metrics. 
 
 #### Bearer Token
 

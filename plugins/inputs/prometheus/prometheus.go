@@ -26,6 +26,9 @@ type Prometheus struct {
 	// An array of Kubernetes services to scrape metrics from.
 	KubernetesServices []string
 
+	// The URL of the local Mesos agent
+	MesosAgentUrl string `toml:"mesos_agent_url"`
+
 	// Bearer Token authorization file path
 	BearerToken string `toml:"bearer_token"`
 
@@ -42,6 +45,9 @@ var sampleConfig = `
 
   ## An array of Kubernetes services to scrape metrics from.
   # kubernetes_services = ["http://my-service-dns.my-namespace:9100/metrics"]
+
+	## The address of the local Mesos agent
+	# mesos_agent_url = "http://localhost:5051"
 
   ## Use bearer token for authorization
   # bearer_token = /path/to/bearer/token
@@ -116,6 +122,13 @@ func (p *Prometheus) GetAllURLs() ([]URLAndAddress, error) {
 		for _, resolved := range resolvedAddresses {
 			serviceURL := p.AddressToURL(URL, resolved)
 			allURLs = append(allURLs, URLAndAddress{URL: serviceURL, Address: resolved, OriginalURL: URL})
+		}
+	}
+	if MesosAgentUrl != "" {
+		mesosSD := MesosSD.New(MesosAgentUrl)
+		mesosSD.Discover()
+		for _, task := range mesosSD.Tasks() {
+			allURLs = append(allURLs, task.URLAndAddress())
 		}
 	}
 	return allURLs, nil
