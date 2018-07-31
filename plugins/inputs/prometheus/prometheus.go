@@ -124,11 +124,16 @@ func (p *Prometheus) GetAllURLs() ([]URLAndAddress, error) {
 			allURLs = append(allURLs, URLAndAddress{URL: serviceURL, Address: resolved, OriginalURL: URL})
 		}
 	}
-	if MesosAgentUrl != "" {
-		mesosSD := MesosSD.New(MesosAgentUrl)
-		mesosSD.Discover()
-		for _, task := range mesosSD.Tasks() {
-			allURLs = append(allURLs, task.URLAndAddress())
+	if p.MesosAgentUrl != "" {
+		taskURLs, err := discoverMesosTasks(p.MesosAgentUrl)
+		if err != nil {
+			log.Printf("prometheus: Could not get tasks from %s, skipping mesos service discovery. Error: %s", p.MesosAgentUrl, err)
+			// TODO should we return an error here?
+			return allURLs, nil
+		}
+		for _, taskURL := range taskURLs {
+			log.Printf("Appending url %s / %s / %s", taskURL.OriginalURL, taskURL.URL, taskURL.Address)
+			allURLs = append(allURLs, taskURL)
 		}
 	}
 	return allURLs, nil
