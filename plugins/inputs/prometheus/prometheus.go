@@ -132,7 +132,6 @@ func (p *Prometheus) GetAllURLs() ([]URLAndAddress, error) {
 			return allURLs, nil
 		}
 		for _, taskURL := range taskURLs {
-			log.Printf("Appending url %s / %s / %s", taskURL.OriginalURL, taskURL.URL, taskURL.Address)
 			allURLs = append(allURLs, taskURL)
 		}
 	}

@@ -17,17 +17,24 @@ import (
 func discoverMesosTasks(mesosAgentUrl string) ([]URLAndAddress, error) {
 	var result = make([]URLAndAddress, 0)
 
-	// TODO error handling
-	maUrl, _ := url.Parse(mesosAgentUrl)
-	maHost, _, _ := net.SplitHostPort(maUrl.Host)
+	maUrl, err := url.Parse(mesosAgentUrl)
+	if err != nil {
+		return result, err
+	}
+	maHost, _, err := net.SplitHostPort(maUrl.Host)
+	if err != nil {
+		return result, err
+	}
 
 	// TODO: timeout
 	uri := mesosAgentUrl + "/api/v1"
 	cli := httpagent.NewSender(httpcli.New(httpcli.Endpoint(uri)).Send)
 	ctx := context.Background()
 
-	// TODO error handling
-	resp, _ := cli.Send(ctx, calls.NonStreaming(calls.GetTasks()))
+	resp, err := cli.Send(ctx, calls.NonStreaming(calls.GetTasks()))
+	if err != nil {
+		return result, err
+	}
 
 	defer func() {
 		if resp != nil {
@@ -46,32 +53,27 @@ func discoverMesosTasks(mesosAgentUrl string) ([]URLAndAddress, error) {
 	}
 	if r.GetType() == agent.Response_GET_TASKS {
 		gt := r.GetGetTasks()
-		log.Printf("prometheus::mesos: found %d tasks", len(gt.LaunchedTasks))
 		for _, task := range gt.LaunchedTasks {
-			log.Printf("prometheus::mesos: checking task named %s", task.Name)
 			if task.Discovery == nil {
 				continue
 			}
 			if task.Discovery.Ports == nil {
 				continue
 			}
-			log.Printf("prometheus::mesos: %s had discovery and ports", task.Name)
 			for _, port := range task.Discovery.Ports.Ports {
 				if port.Labels == nil {
 					continue
 				}
-				log.Printf("prometheus::mesos: %s (port %d) had labels", task.Name, port.Number)
 				for _, label := range port.Labels.Labels {
 					if label.Key == "DCOS_METRICS_FORMAT" && *label.Value == "prometheus" {
-						log.Printf("prometheus::mesos: %s (port %d) was instrumented with prometheus metrics", task.Name, port.Number)
-						// TODO error handling
+						log.Printf("prometheus: instrumenting mesos task %s (%s:%d) with prometheus metrics", task.Name, maHost, port.Number)
 
 						taskURL := url.URL{
 							Scheme: maUrl.Scheme,
 							Host:   net.JoinHostPort(maHost, strconv.Itoa(int(port.Number))),
 							Path:   "/metrics",
 						}
-						log.Printf("prometheus::mesos: task url: %q", taskURL)
+						// TODO address should be the mesos-dns address eg sleep.marathon.mesos
 						uaa := URLAndAddress{URL: &taskURL, OriginalURL: &taskURL}
 						result = append(result, uaa)
 					}
