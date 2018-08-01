@@ -1,12 +1,14 @@
 # DC/OS Metadata Plugin
 
 The DC/OS metdata processor plugin tracks state on the mesos agent, and decorates every metric which passes through it
-from the [dcos_container](../../input/dcos_container) and [dcos_workload](../../input/dcos_workload) with appropriate
-metadata in the form of DC/OS primitives. 
+from the [dcos_container](../../input/dcos_container) and [dcos_workload](../../input/dcos_workload) plugins with
+appropriate metadata in the form of DC/OS primitives. 
+
 
 ### Configuration
 
 ```toml
+# Associate metadata with dcos-related metrics
 [[processors.dcos_metadata]]
 ```
 
@@ -15,7 +17,22 @@ metadata in the form of DC/OS primitives.
 This process adds the following tags to any metric with a container_id tag set:
 
  - `task_name` - the name of the task associated with this container
+ - `executor_name` - the name of the executor which started the task associated
+                     with this container
+ - `service_name` - the name of the service (mesos framework) which scheduled 
+                    the task associated with this container
 
-### Fields:
+Additionally, any task labels which are prefixed with `DCOS_METRICS_` are added
+to each metric as a tag. For example, the application configuration would have
+every metric associated with it decorated with a `FOO=bar` tag.
 
-This processor does not add fields.
+```
+{
+  "id": "some-task",
+  "cmd": "sleep 123",
+  "labels": {
+    "HAPROXY_V0_HOST": "http://www.example.com",
+    "DCOS_METRICS_FOO": "bar"
+  }
+}
+```
