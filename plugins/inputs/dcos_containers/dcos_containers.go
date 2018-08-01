@@ -30,7 +30,8 @@ type containerInfo struct {
 	taskName      string
 	executorName  string
 	frameworkName string
-	taskLabels    map[string]string
+	// TODO add taskLabels back in
+	// taskLabels    map[string]string
 }
 
 // DCOSContainers describes the options available to this plugin
