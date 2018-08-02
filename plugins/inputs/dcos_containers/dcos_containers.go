@@ -2,6 +2,7 @@ package dcos_containers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -61,11 +62,17 @@ func (dc *DCOSContainers) Gather(acc telegraf.Accumulator) error {
 	cli := httpagent.NewSender(httpcli.New(httpcli.Endpoint(uri)).Send)
 	ctx := context.Background()
 
-	gc := dc.getContainers(ctx, cli)
+	gc, err := dc.getContainers(ctx, cli)
+	if err != nil {
+		return err
+	}
 	dc.prune(gc)
 	if !dc.isConsistent(gc) {
 		// new containers were found
-		state := dc.getState(ctx, cli)
+		state, err := dc.getState(ctx, cli)
+		if err != nil {
+			return err
+		}
 		dc.reconcile(gc, state)
 	}
 
@@ -82,21 +89,42 @@ func (dc *DCOSContainers) Gather(acc telegraf.Accumulator) error {
 }
 
 // getContainers requests a list of containers from the operator API
-func (dc *DCOSContainers) getContainers(ctx context.Context, cli calls.Sender) *agent.Response_GetContainers {
+func (dc *DCOSContainers) getContainers(ctx context.Context, cli calls.Sender) (*agent.Response_GetContainers, error) {
 	// TODO error handling
-	resp, _ := cli.Send(ctx, calls.NonStreaming(calls.GetContainers()))
-	r, _ := processResponse(resp, agent.Response_GET_CONTAINERS)
+	resp, err := cli.Send(ctx, calls.NonStreaming(calls.GetContainers()))
+	if err != nil {
+		return nil, err
+	}
+	r, err := processResponse(resp, agent.Response_GET_CONTAINERS)
+	if err != nil {
+		return nil, err
+	}
 
-	return r.GetGetContainers()
+	gc := r.GetGetContainers()
+	if gc == nil {
+		return gc, errors.New("the getContainers response from the mesos agent was empty")
+	}
+
+	return gc, nil
 }
 
 // getState requests state from the operator API
-func (dc *DCOSContainers) getState(ctx context.Context, cli calls.Sender) *agent.Response_GetState {
+func (dc *DCOSContainers) getState(ctx context.Context, cli calls.Sender) (*agent.Response_GetState, error) {
 	// TODO error handling
-	resp, _ := cli.Send(ctx, calls.NonStreaming(calls.GetState()))
-	r, _ := processResponse(resp, agent.Response_GET_STATE)
+	resp, err := cli.Send(ctx, calls.NonStreaming(calls.GetState()))
+	if err != nil {
+		return nil, err
+	}
+	r, err := processResponse(resp, agent.Response_GET_STATE)
+	if err != nil {
+		return nil, err
+	}
 
-	return r.GetGetState()
+	gs := r.GetGetState()
+	if gs == nil {
+		return gs, errors.New("the getState response from the mesos agent was empty")
+	}
+	return gs, nil
 }
 
 // prune removes container info for stale containers
@@ -211,7 +239,7 @@ func processResponse(resp mesos.Response, t agent.Response_Type) (agent.Response
 			return r, err
 		}
 	}
-	if r.GetType() != t {
+	if r.GetType() == t {
 		return r, nil
 	} else {
 		return r, fmt.Errorf("processResponse expected type %q, got %q", t, r.GetType())
