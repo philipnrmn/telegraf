@@ -1,20 +1,31 @@
 package dcos_metadata
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
 	"log"
+	"math"
+	"time"
 
 	"github.com/influxdata/telegraf"
-	"github.com/influxdata/telegraf/plugins/processors"
+	"github.com/influxdata/telegraf/plugins/inputs"
+
+	"github.com/mesos/mesos-go/api/v1/lib"
+	"github.com/mesos/mesos-go/api/v1/lib/agent"
+	"github.com/mesos/mesos-go/api/v1/lib/agent/calls"
+	"github.com/mesos/mesos-go/api/v1/lib/httpcli"
+	"github.com/mesos/mesos-go/api/v1/lib/httpcli/httpagent"
 )
 
-// TODO: doublecheck we can't get the operator api from the agent
 type DCOSMetadata struct {
-	LeaderUrl string
+	MesosAgentUrl string
 }
 
 const sampleConfig = `
-## The URL of the leading mesos master
-leader_url = "leader.mesos:5050"
+## The URL of the local mesos agent
+mesos_agent_url = "http://$NODE_PRIVATE_IP:5051"
 `
 
 // SampleConfig returns the default configuration
@@ -31,6 +42,10 @@ func (dm *DCOSMetadata) Description() string {
 func (dm *DCOSMetadata) Apply(in ...telegraf.Metric) []telegraf.Metric {
 	for _, metric := range in {
 		log.Println(metric)
+		// TODO: does the metric have a containerID tag?
+		// TODO: retrieve container ID and tag it with metrics.
+		// TODO: was the container ID not found? Get state.
+
 	}
 	return in
 }
@@ -38,8 +53,6 @@ func (dm *DCOSMetadata) Apply(in ...telegraf.Metric) []telegraf.Metric {
 // init is called once when telegraf starts
 func init() {
 	log.Println("dcos_metadata::init")
-	// TODO: get state.json once
-	// TODO: connect to mesos master for operator updates
 	processors.Add("dcos_metadata", func() telegraf.Processor {
 		return &DCOSMetadata{}
 	})
