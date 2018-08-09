@@ -21,25 +21,12 @@ import (
 
 const sampleConfig = `
 ## The URL of the local mesos agent
-mesos_agent_url = "http://127.0.0.1:5051"
+mesos_agent_url = "http://$NODE_PRIVATE_IP:5051"
 `
-
-// containerInfo is a tuple of metadata which we use to map a container ID to
-// information about the task, executor and framework.
-type containerInfo struct {
-	containerID   string
-	taskName      string
-	executorName  string
-	frameworkName string
-	// TODO add taskLabels back in
-	// taskLabels    map[string]string
-}
 
 // DCOSContainers describes the options available to this plugin
 type DCOSContainers struct {
 	MesosAgentUrl string
-	// containers maps container ID to related metadata obtained from state
-	containers map[string]containerInfo
 	// TODO configurable timeouts
 }
 
@@ -66,23 +53,9 @@ func (dc *DCOSContainers) Gather(acc telegraf.Accumulator) error {
 	if err != nil {
 		return err
 	}
-	dc.prune(gc)
-	if !dc.isConsistent(gc) {
-		// new containers were found
-		state, err := dc.getState(ctx, cli)
-		if err != nil {
-			return err
-		}
-		dc.reconcile(gc, state)
-	}
 
 	for _, c := range gc.Containers {
-		if info, ok := dc.containers[c.ContainerID.Value]; ok {
-			acc.AddFields("dcos_containers", cFields(c), cTags(info), cTS(c))
-		} else {
-			// TODO better warning
-			fmt.Println("could not record metrics for", c.ContainerID.Value, "as no metadata was found in /state")
-		}
+		acc.AddFields("dcos_containers", cFields(c), cTags(c), cTS(c))
 	}
 
 	return nil
@@ -90,7 +63,6 @@ func (dc *DCOSContainers) Gather(acc telegraf.Accumulator) error {
 
 // getContainers requests a list of containers from the operator API
 func (dc *DCOSContainers) getContainers(ctx context.Context, cli calls.Sender) (*agent.Response_GetContainers, error) {
-	// TODO error handling
 	resp, err := cli.Send(ctx, calls.NonStreaming(calls.GetContainers()))
 	if err != nil {
 		return nil, err
@@ -106,120 +78,6 @@ func (dc *DCOSContainers) getContainers(ctx context.Context, cli calls.Sender) (
 	}
 
 	return gc, nil
-}
-
-// getState requests state from the operator API
-func (dc *DCOSContainers) getState(ctx context.Context, cli calls.Sender) (*agent.Response_GetState, error) {
-	// TODO error handling
-	resp, err := cli.Send(ctx, calls.NonStreaming(calls.GetState()))
-	if err != nil {
-		return nil, err
-	}
-	r, err := processResponse(resp, agent.Response_GET_STATE)
-	if err != nil {
-		return nil, err
-	}
-
-	gs := r.GetGetState()
-	if gs == nil {
-		return gs, errors.New("the getState response from the mesos agent was empty")
-	}
-	return gs, nil
-}
-
-// prune removes container info for stale containers
-func (dc *DCOSContainers) prune(gc *agent.Response_GetContainers) {
-	for cid, _ := range dc.containers {
-		found := false
-		for _, c := range gc.Containers {
-			if cid == c.ContainerID.Value {
-				found = true
-				break
-			}
-		}
-		if !found {
-			delete(dc.containers, cid)
-		}
-	}
-	return
-}
-
-// isConsistent returns true if container info is available for all containers
-func (dc *DCOSContainers) isConsistent(gc *agent.Response_GetContainers) bool {
-	if gc.Containers == nil && len(dc.containers) == 0 {
-		return true
-	}
-	if len(gc.Containers) != len(dc.containers) {
-		return false
-	}
-	for _, c := range gc.Containers {
-		if _, ok := dc.containers[c.ContainerID.Value]; !ok {
-			return false
-		}
-	}
-	return true
-}
-
-// reconcile adds newly discovered container info to container info
-func (dc *DCOSContainers) reconcile(gc *agent.Response_GetContainers, gs *agent.Response_GetState) {
-	gt := gs.GetGetTasks()
-	tasks := gt.GetLaunchedTasks()
-	gf := gs.GetGetFrameworks()
-	frameworks := gf.Frameworks
-
-	for _, c := range gc.Containers {
-		cid := c.ContainerID.Value
-		fid := c.FrameworkID.Value
-
-		var task mesos.Task
-		var framework mesos.FrameworkInfo
-
-		// TODO break these into separate methods
-		if _, ok := dc.containers[cid]; !ok {
-
-			// find task:
-			for _, t := range tasks {
-				if len(t.Statuses) == 0 {
-					continue
-				}
-				s := t.Statuses[0]
-				// TODO exercise this code in a test
-				if s.ContainerStatus.ContainerID.Parent != nil {
-					if s.ContainerStatus.ContainerID.Parent.Value == cid {
-						task = t
-						break
-					}
-				}
-				if s.ContainerStatus.ContainerID.Value == cid {
-					task = t
-					break
-				}
-			}
-
-			// TODO find task labels
-
-			// find framework:
-			for _, f := range frameworks {
-				if f.FrameworkInfo.ID.Value == fid {
-					framework = f.FrameworkInfo
-					break
-				}
-			}
-
-			// TODO exercise this code in a test
-			eName := ""
-			// executor name can be missing
-			if c.ExecutorName != nil {
-				eName = *c.ExecutorName
-			}
-			dc.containers[cid] = containerInfo{
-				containerID:   cid,
-				executorName:  eName,
-				frameworkName: framework.Name,
-				taskName:      task.Name,
-			}
-		}
-	}
 }
 
 // processResponse reads the response from a triggered request, verifies its
@@ -266,12 +124,8 @@ func cFields(c agent.Response_GetContainers_Container) map[string]interface{} {
 }
 
 // cTags extracts relevant metadata from a Container object as a map of tags
-func cTags(info containerInfo) map[string]string {
-	results := make(map[string]string)
-	results["service_name"] = info.frameworkName
-	results["executor_name"] = info.executorName
-	results["task_name"] = info.taskName
-	return results
+func cTags(c agent.Response_GetContainers_Container) map[string]string {
+	return map[string]string{"container_id": c.ContainerID}
 }
 
 // cTS retrieves the timestamp from a Container object as a time rounded to the
@@ -283,10 +137,7 @@ func cTS(c agent.Response_GetContainers_Container) time.Time {
 // init is called once when telegraf starts
 func init() {
 	log.Println("dcos_containers::init")
-	// TODO: request to mesos to ensure that it's reachable
 	inputs.Add("dcos_containers", func() telegraf.Input {
-		return &DCOSContainers{
-			containers: make(map[string]containerInfo),
-		}
+		return &DCOSContainers{}
 	})
 }
