@@ -34,21 +34,15 @@ type testCase struct {
 	fields  map[string]interface{}
 	tags    map[string]string
 	ts      int64
-	// cachedContainers prepopulates the plugin with container info
-	cachedContainers map[string]containerInfo
-	// containers is how the dc.containers should look after
-	// metrics are retrieved
-	containers map[string]containerInfo
 }
 
 var (
 	TEST_CASES = []testCase{
 		testCase{
-			fixture:          "empty",
-			fields:           map[string]interface{}{},
-			tags:             map[string]string{},
-			ts:               0,
-			cachedContainers: map[string]containerInfo{},
+			fixture: "empty",
+			fields:  map[string]interface{}{},
+			tags:    map[string]string{},
+			ts:      0,
 		},
 		testCase{
 			fixture: "normal",
@@ -66,17 +60,9 @@ var (
 				"mem_rss_bytes":            uint64(5105614848),
 			},
 			tags: map[string]string{
-				"service_name":  "framework",
-				"executor_name": "executor",
-				"task_name":     "task",
+				"container_id": "abc123",
 			},
 			ts: 1388534400,
-			cachedContainers: map[string]containerInfo{
-				"abc123": containerInfo{"abc123", "task", "executor", "framework"},
-			},
-			containers: map[string]containerInfo{
-				"abc123": containerInfo{"abc123", "task", "executor", "framework"},
-			},
 		},
 		testCase{
 			fixture: "fresh",
@@ -94,25 +80,15 @@ var (
 				"mem_rss_bytes":            uint64(5105614848),
 			},
 			tags: map[string]string{
-				"service_name":  "framework",
-				"executor_name": "executor",
-				"task_name":     "task",
+				"container_id": "abc123",
 			},
-			ts:               1388534400,
-			cachedContainers: map[string]containerInfo{},
-			containers: map[string]containerInfo{
-				"abc123": containerInfo{"abc123", "task", "executor", "framework"},
-			},
+			ts: 1388534400,
 		},
 		testCase{
 			fixture: "stale",
 			fields:  map[string]interface{}{},
 			tags:    map[string]string{},
 			ts:      0,
-			cachedContainers: map[string]containerInfo{
-				"abc123": containerInfo{"abc123", "task", "executor", "framework"},
-			},
-			containers: map[string]containerInfo{},
 		},
 	}
 )
@@ -127,7 +103,6 @@ func TestGather(t *testing.T) {
 
 			dc := DCOSContainers{
 				MesosAgentUrl: server.URL,
-				containers:    tc.cachedContainers,
 			}
 
 			err := acc.GatherError(dc.Gather)
@@ -141,10 +116,6 @@ func TestGather(t *testing.T) {
 				assertHasTimestamp(t, acc, "dcos_containers", tc.ts)
 			} else {
 				acc.AssertDoesNotContainMeasurement(t, "dcos_containers")
-			}
-
-			if tc.containers != nil {
-				assertHasContainers(t, dc, tc.containers)
 			}
 		})
 	}
@@ -199,18 +170,4 @@ func assertHasTimestamp(t *testing.T, acc testutil.Accumulator, measurement stri
 		return
 	}
 	t.Errorf("%s could not be retrieved while attempting to assert it had timestamp", measurement)
-}
-
-// assertHasContainers checks that DCOSContainers has the expected container info
-func assertHasContainers(t *testing.T, dc DCOSContainers, expected map[string]containerInfo) {
-	if len(dc.containers) != len(expected) {
-		t.Errorf("expected container info cache to be of size %d, but it was %d", len(expected), len(dc.containers))
-		return
-	}
-	for cid, _ := range expected {
-		if _, ok := dc.containers[cid]; !ok {
-			t.Errorf("expected container %s to be present in cache, but it was not", cid)
-			return
-		}
-	}
 }
