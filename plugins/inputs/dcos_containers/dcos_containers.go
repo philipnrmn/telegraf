@@ -125,7 +125,7 @@ func cFields(c agent.Response_GetContainers_Container) map[string]interface{} {
 
 // cTags extracts relevant metadata from a Container object as a map of tags
 func cTags(c agent.Response_GetContainers_Container) map[string]string {
-	return map[string]string{"container_id": c.ContainerID}
+	return map[string]string{"container_id": c.ContainerID.Value}
 }
 
 // cTS retrieves the timestamp from a Container object as a time rounded to the
