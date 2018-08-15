@@ -43,32 +43,6 @@ var (
 			},
 			ts: 1388534400,
 		},
-		testCase{
-			fixture: "fresh",
-			fields: map[string]interface{}{
-				"cpus_limit":               8.25,
-				"cpus_nr_periods":          uint32(769021),
-				"cpus_nr_throttled":        uint32(1046),
-				"cpus_system_time_secs":    34501.45,
-				"cpus_throttled_time_secs": 352.597023453,
-				"cpus_user_time_secs":      96348.84,
-				"mem_anon_bytes":           uint64(4845449216),
-				"mem_file_bytes":           uint64(260165632),
-				"mem_limit_bytes":          uint64(7650410496),
-				"mem_mapped_file_bytes":    uint64(7159808),
-				"mem_rss_bytes":            uint64(5105614848),
-			},
-			tags: map[string]string{
-				"container_id": "abc123",
-			},
-			ts: 1388534400,
-		},
-		testCase{
-			fixture: "stale",
-			fields:  map[string]interface{}{},
-			tags:    map[string]string{},
-			ts:      0,
-		},
 	}
 )
 
