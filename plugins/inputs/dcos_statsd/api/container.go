@@ -43,17 +43,23 @@ func (sc *StatsdServerController) Start(c *Container) error {
 		return fmt.Errorf("container with id %s already exists", c.Id)
 	}
 
-	server := statsd.Statsd{
-		Protocol:         "udp",
-		ServiceAddress:   ":0",
-		ParseDataDogTags: true,
+	c.Server = statsd.Statsd{
+		Protocol:               "udp",
+		ServiceAddress:         fmt.Sprintf(":%d", c.StatsdPort),
+		ParseDataDogTags:       true,
+		MetricSeparator:        "_",
+		AllowedPendingMessages: 10000,
+		DeleteCounters:         true,
+		DeleteGauges:           true,
+		DeleteSets:             true,
+		DeleteTimings:          true,
 	}
 	var acc telegraf.Accumulator
-	server.Start(acc)
+	c.Server.Start(acc)
 
 	// TODO wait for this properly
 	time.Sleep(1 * time.Second)
-	addr := server.UDPlistener.LocalAddr().String()
+	addr := c.Server.UDPlistener.LocalAddr().String()
 	// TODO handle error
 	url, err := url.Parse("http://" + addr)
 	if err != nil {
@@ -69,11 +75,13 @@ func (sc *StatsdServerController) Start(c *Container) error {
 func (sc *StatsdServerController) Gather(acc telegraf.Accumulator) {
 	var wg sync.WaitGroup
 	for id, c := range sc.containers {
-		log.Printf("StatsdServerController::Gather::%s", id)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			c.Server.Gather(acc)
+			if err := c.Server.Gather(acc); err != nil {
+				log.Printf("E! StatsdServerController::Gather::Error %s", err)
+			}
+			log.Printf("StatsdServerController::Gather::%s::Gathering", id)
 		}()
 	}
 	wg.Wait()
