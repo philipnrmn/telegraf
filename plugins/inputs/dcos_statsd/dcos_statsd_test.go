@@ -30,7 +30,4 @@ func TestStart(t *testing.T) {
 	assert.Equal(t, "Hello World!", string(body))
 }
 
-func TestGather(t *testing.T) {
-	acc := &testutil.Accumulator{}
-	ds := DCOSStatsd{}
-}
+// TODO TestGather

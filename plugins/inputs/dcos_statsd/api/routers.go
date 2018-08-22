@@ -12,20 +12,20 @@ type Route struct {
 	Name        string
 	Method      string
 	Pattern     string
-	HandlerFunc func(chan Container, chan Container) http.HandlerFunc
+	HandlerFunc func(sc ServerController) http.HandlerFunc
 }
 
 type Routes []Route
 
-func NewRouter(start chan Container, stop chan Container) *mux.Router {
+func NewRouter(sc ServerController) *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
 	for _, route := range routes {
 		var handler http.Handler
-		handler = route.HandlerFunc
+		handler = route.HandlerFunc(sc)
 		handler = Logger(handler, route.Name)
 
 		router.
-			Methods(route.Method(start, stop)).
+			Methods(route.Method).
 			Path(route.Pattern).
 			Name(route.Name).
 			Handler(handler)
@@ -34,8 +34,10 @@ func NewRouter(start chan Container, stop chan Container) *mux.Router {
 	return router
 }
 
-func Index(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello World!")
+func Index(sc ServerController) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Hello World!")
+	}
 }
 
 var routes = Routes{

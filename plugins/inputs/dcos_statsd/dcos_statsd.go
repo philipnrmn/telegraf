@@ -21,7 +21,8 @@ type DCOSStatsd struct {
 	// Listen is the address on which we listen
 	Listen string
 
-	apiServer *http.Server
+	apiServer        *http.Server
+	serverController api.ServerController
 }
 
 // SampleConfig returns the default configuration
@@ -38,10 +39,7 @@ func (ds *DCOSStatsd) Description() string {
 // It is invoked on a schedule (default every 10s) by the telegraf runtime.
 func (ds *DCOSStatsd) Gather(acc telegraf.Accumulator) error {
 	log.Println("dcos_statsd::gather")
-	// TODO create a waitgroup
-	// TODO run Gather() in a goroutine foreach server
-	// TODO await
-	// TODO pipe the results into the accumulator
+	ds.serverController.Gather(acc)
 	return nil
 }
 
@@ -49,7 +47,7 @@ func (ds *DCOSStatsd) Gather(acc telegraf.Accumulator) error {
 // metrics
 func (ds *DCOSStatsd) Start(_ telegraf.Accumulator) error {
 	log.Println("dcos_statsd::start")
-	router := api.NewRouter()
+	router := api.NewRouter(ds.serverController)
 
 	srv := &http.Server{
 		Handler: router,
@@ -64,6 +62,7 @@ func (ds *DCOSStatsd) Start(_ telegraf.Accumulator) error {
 			log.Fatal(err)
 		}
 	}()
+	// TODO load and start existing servers
 	return nil
 }
 
@@ -80,6 +79,10 @@ func (ds *DCOSStatsd) Stop() {
 func init() {
 	log.Println("dcos_statsd::init")
 	inputs.Add("dcos_statsd", func() telegraf.Input {
-		return &DCOSStatsd{}
+		var sc api.ServerController
+		sc = api.NewStatsdServerController()
+		return &DCOSStatsd{
+			serverController: sc,
+		}
 	})
 }
