@@ -14,6 +14,9 @@ generate it using `telegraf --usage dcos_containers`.
   ## The URL of the mesos agent
   mesos_agent_url = "http://localhost:5051"
 
+  ## The period after which requests to mesos agent should time out
+  timeout = 10s
+
   ## Optional TLS Config
   # tls_ca = "/etc/telegraf/ca.pem"
   # tls_cert = "/etc/telegraf/cert.pem"
@@ -27,10 +30,10 @@ mode. Strict mode requires TLS configuration.
 
 ### Metrics:
 
-<!-- TODO: consider including
- - processes
- - threads
- -->
+ - container
+   - fields:
+     - processes
+     - threads
 
  - cpus
    - fields:
@@ -73,23 +76,20 @@ mode. Strict mode requires TLS configuration.
  - blkio
    - tags:
      - policy <!-- cfq/cfq_recursive/throttling -->
-     - device <!-- eg /dev/sda1 -->
+     - device <!-- eg 1.4 -->
    - fields:
-     - serviced
-     - service_bytes
-     - service_time
-     - merged
-     - queued
-     - wait_time
+     - io_serviced
+     - io_service_bytes
+     - io_service_time
+     - io_merged
+     - io_queued
+     - io_wait_time
  
 ### Tags:
 
-All metrics have the following tags:
+All metrics have the following tag:
 
- - container_id (a unique identifer given by mesos to the workload's container)
- - task_name
- - executor_name
- - service_name
+ - container_id
 
 ### Example Output:
 

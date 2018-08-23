@@ -31,7 +31,7 @@ var BLKIO_POLICIES = []string{
 // DCOSContainers describes the options available to this plugin
 type DCOSContainers struct {
 	MesosAgentUrl string
-	// TODO configurable timeouts
+	Timeout       time.Duration
 }
 
 // measurement is a combination of fields and tags specific to those fields
@@ -76,11 +76,9 @@ func (dc *DCOSContainers) Description() string {
 // Gather takes in an accumulator and adds the metrics that the plugin gathers.
 // It is invoked on a schedule (default every 10s) by the telegraf runtime.
 func (dc *DCOSContainers) Gather(acc telegraf.Accumulator) error {
-	// TODO: timeout
-
 	uri := dc.MesosAgentUrl + "/api/v1"
 	cli := httpagent.NewSender(httpcli.New(httpcli.Endpoint(uri)).Send)
-	ctx := context.Background()
+	ctx, _ := context.WithTimeout(context.Background(), dc.Timeout)
 
 	gc, err := dc.getContainers(ctx, cli)
 	if err != nil {
@@ -308,6 +306,8 @@ func warnIfNotSet(err error) {
 func init() {
 	log.Println("dcos_containers::init")
 	inputs.Add("dcos_containers", func() telegraf.Input {
-		return &DCOSContainers{}
+		return &DCOSContainers{
+			Timeout: 10 * time.Second,
+		}
 	})
 }

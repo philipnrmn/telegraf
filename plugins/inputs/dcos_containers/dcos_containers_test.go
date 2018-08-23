@@ -79,6 +79,7 @@ func TestGather(t *testing.T) {
 
 			dc := DCOSContainers{
 				MesosAgentUrl: server.URL,
+				Timeout:       10 * time.Millisecond,
 			}
 
 			err := acc.GatherError(dc.Gather)
