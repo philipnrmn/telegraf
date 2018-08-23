@@ -9,37 +9,60 @@ import (
 )
 
 type testCase struct {
-	fixture string
-	fields  map[string]interface{}
-	tags    map[string]string
-	ts      int64
+	fixture      string
+	measurements map[string]map[string]interface{}
+	tags         map[string]string
+	ts           int64
 }
 
 var (
 	TEST_CASES = []testCase{
 		testCase{
-			fixture: "empty",
-			fields:  map[string]interface{}{},
-			tags:    map[string]string{},
-			ts:      0,
+			fixture:      "empty",
+			measurements: map[string]map[string]interface{}{},
+			tags:         map[string]string{},
+			ts:           0,
 		},
 		testCase{
 			fixture: "normal",
-			fields: map[string]interface{}{
-				"cpus_limit":               8.25,
-				"cpus_nr_periods":          uint32(769021),
-				"cpus_nr_throttled":        uint32(1046),
-				"cpus_system_time_secs":    34501.45,
-				"cpus_throttled_time_secs": 352.597023453,
-				"cpus_user_time_secs":      96348.84,
-				"mem_anon_bytes":           uint64(4845449216),
-				"mem_file_bytes":           uint64(260165632),
-				"mem_limit_bytes":          uint64(7650410496),
-				"mem_mapped_file_bytes":    uint64(7159808),
-				"mem_rss_bytes":            uint64(5105614848),
+			measurements: map[string]map[string]interface{}{
+				"cpus": map[string]interface{}{
+					"limit":               8.25,
+					"nr_periods":          uint32(769021),
+					"nr_throttled":        uint32(1046),
+					"system_time_secs":    34501.45,
+					"throttled_time_secs": 352.597023453,
+					"user_time_secs":      96348.84,
+				},
+				"mem": map[string]interface{}{
+					"anon_bytes":        uint64(4845449216),
+					"file_bytes":        uint64(260165632),
+					"limit_bytes":       uint64(7650410496),
+					"mapped_file_bytes": uint64(7159808),
+					"rss_bytes":         uint64(5105614848),
+				},
 			},
 			tags: map[string]string{
 				"container_id": "abc123",
+			},
+			ts: 1388534400,
+		},
+		testCase{
+			fixture: "blkio",
+			measurements: map[string]map[string]interface{}{
+				"blkio": map[string]interface{}{
+					"io_serviced":      uint64(1),
+					"io_service_bytes": uint64(2),
+					"io_service_time":  uint64(3),
+					"io_wait_time":     uint64(4),
+					"io_merged":        uint64(5),
+					"io_queued":        uint64(6),
+				},
+			},
+			tags: map[string]string{
+				"container_id": "abc123",
+				"device":       "default",
+				"policy":       "cfq",
 			},
 			ts: 1388534400,
 		},
@@ -60,15 +83,21 @@ func TestGather(t *testing.T) {
 
 			err := acc.GatherError(dc.Gather)
 			assert.Nil(t, err)
-			if len(tc.fields) > 0 {
-				// all expected fields are present
-				acc.AssertContainsFields(t, "dcos_containers", tc.fields)
-				// all expected tags are present
-				acc.AssertContainsTaggedFields(t, "dcos_containers", tc.fields, tc.tags)
-				// the expected timestamp is present
-				assertHasTimestamp(t, acc, "dcos_containers", tc.ts)
+			if len(tc.measurements) > 0 {
+				for m, fields := range tc.measurements {
+					// all expected fields are present
+					acc.AssertContainsFields(t, m, fields)
+					// all expected tags are present
+					acc.AssertContainsTaggedFields(t, m, fields, tc.tags)
+					// the expected timestamp is present
+					assertHasTimestamp(t, acc, m, tc.ts)
+				}
 			} else {
-				acc.AssertDoesNotContainMeasurement(t, "dcos_containers")
+				acc.AssertDoesNotContainMeasurement(t, "containers")
+				acc.AssertDoesNotContainMeasurement(t, "cpus")
+				acc.AssertDoesNotContainMeasurement(t, "mem")
+				acc.AssertDoesNotContainMeasurement(t, "disk")
+				acc.AssertDoesNotContainMeasurement(t, "net")
 			}
 		})
 	}

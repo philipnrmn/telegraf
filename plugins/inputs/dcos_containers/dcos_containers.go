@@ -24,10 +24,43 @@ const sampleConfig = `
 mesos_agent_url = "http://$NODE_PRIVATE_IP:5051"
 `
 
+var BLKIO_POLICIES = []string{
+	"cfq", "cfq_recursive", "throttling",
+}
+
 // DCOSContainers describes the options available to this plugin
 type DCOSContainers struct {
 	MesosAgentUrl string
 	// TODO configurable timeouts
+}
+
+// measurement is a combination of fields and tags specific to those fields
+type measurement struct {
+	name   string
+	fields map[string]interface{}
+	tags   map[string]string
+}
+
+// combineTags combines this measurement's tags with some other tags. In the
+// event of a collision, this measurement's tags take priority.
+func (m *measurement) combineTags(newTags map[string]string) map[string]string {
+	results := make(map[string]string)
+	for k, v := range newTags {
+		results[k] = v
+	}
+	for k, v := range m.tags {
+		results[k] = v
+	}
+	return results
+}
+
+// newMeasurement is a convenience method for instantiating new measurements
+func newMeasurement(name string) measurement {
+	return measurement{
+		name:   name,
+		fields: make(map[string]interface{}),
+		tags:   make(map[string]string),
+	}
 }
 
 // SampleConfig returns the default configuration
@@ -55,7 +88,13 @@ func (dc *DCOSContainers) Gather(acc telegraf.Accumulator) error {
 	}
 
 	for _, c := range gc.Containers {
-		acc.AddFields("dcos_containers", cFields(c), cTags(c), cTS(c))
+		ts := cTS(c)
+		tags := cTags(c)
+		for _, m := range cMeasurements(c) {
+			if len(m.fields) > 0 {
+				acc.AddFields(m.name, m.fields, m.combineTags(tags), ts)
+			}
+		}
 	}
 
 	return nil
@@ -104,61 +143,118 @@ func processResponse(resp mesos.Response, t agent.Response_Type) (agent.Response
 	}
 }
 
-// cFields flattens a Container object into a map of metric labels and values
-func cFields(c agent.Response_GetContainers_Container) map[string]interface{} {
-	results := make(map[string]interface{})
+// cMeasurements flattens a Container object into a slice of measurements with
+// fields and tags
+func cMeasurements(c agent.Response_GetContainers_Container) []measurement {
+	container := newMeasurement("container")
+	cpus := newMeasurement("cpus")
+	mem := newMeasurement("mem")
+	disk := newMeasurement("disk")
+	net := newMeasurement("net")
+
+	results := []measurement{
+		container, cpus, mem, disk, net,
+	}
+
 	rs := c.ResourceStatistics
 
 	// These items are not in alphabetical order; instead we preserve the order
 	// in the source of the ResourceStatistics struct to make it easy to update.
-	warnIfNotSet(setIfNotNil(results, "processes", rs.GetProcesses))
-	warnIfNotSet(setIfNotNil(results, "threads", rs.GetThreads))
+	warnIfNotSet(setIfNotNil(container.fields, "processes", rs.GetProcesses))
+	warnIfNotSet(setIfNotNil(container.fields, "threads", rs.GetThreads))
 
-	warnIfNotSet(setIfNotNil(results, "cpus_user_time_secs", rs.GetCPUsUserTimeSecs))
-	warnIfNotSet(setIfNotNil(results, "cpus_system_time_secs", rs.GetCPUsSystemTimeSecs))
-	warnIfNotSet(setIfNotNil(results, "cpus_limit", rs.GetCPUsLimit))
-	warnIfNotSet(setIfNotNil(results, "cpus_nr_periods", rs.GetCPUsNrPeriods))
-	warnIfNotSet(setIfNotNil(results, "cpus_nr_throttled", rs.GetCPUsNrThrottled))
-	warnIfNotSet(setIfNotNil(results, "cpus_throttled_time_secs", rs.GetCPUsThrottledTimeSecs))
+	warnIfNotSet(setIfNotNil(cpus.fields, "user_time_secs", rs.GetCPUsUserTimeSecs))
+	warnIfNotSet(setIfNotNil(cpus.fields, "system_time_secs", rs.GetCPUsSystemTimeSecs))
+	warnIfNotSet(setIfNotNil(cpus.fields, "limit", rs.GetCPUsLimit))
+	warnIfNotSet(setIfNotNil(cpus.fields, "nr_periods", rs.GetCPUsNrPeriods))
+	warnIfNotSet(setIfNotNil(cpus.fields, "nr_throttled", rs.GetCPUsNrThrottled))
+	warnIfNotSet(setIfNotNil(cpus.fields, "throttled_time_secs", rs.GetCPUsThrottledTimeSecs))
 
-	warnIfNotSet(setIfNotNil(results, "mem_total_bytes", rs.GetMemTotalBytes))
-	warnIfNotSet(setIfNotNil(results, "mem_total_memsw_bytes", rs.GetMemTotalMemswBytes))
-	warnIfNotSet(setIfNotNil(results, "mem_limit_bytes", rs.GetMemLimitBytes))
-	warnIfNotSet(setIfNotNil(results, "mem_soft_limit_bytes", rs.GetMemSoftLimitBytes))
-	warnIfNotSet(setIfNotNil(results, "mem_file_bytes", rs.GetMemFileBytes))
-	warnIfNotSet(setIfNotNil(results, "mem_anon_bytes", rs.GetMemAnonBytes))
-	warnIfNotSet(setIfNotNil(results, "mem_cache_bytes", rs.GetMemCacheBytes))
-	warnIfNotSet(setIfNotNil(results, "mem_rss_bytes", rs.GetMemRSSBytes))
-	warnIfNotSet(setIfNotNil(results, "mem_mapped_file_bytes", rs.GetMemMappedFileBytes))
-	warnIfNotSet(setIfNotNil(results, "mem_swap_bytes", rs.GetMemSwapBytes))
-	warnIfNotSet(setIfNotNil(results, "mem_unevictable_bytes", rs.GetMemUnevictableBytes))
-	warnIfNotSet(setIfNotNil(results, "mem_low_pressure_counter", rs.GetMemLowPressureCounter))
-	warnIfNotSet(setIfNotNil(results, "mem_medium_pressure_counter", rs.GetMemMediumPressureCounter))
-	warnIfNotSet(setIfNotNil(results, "mem_critical_pressure_counter", rs.GetMemCriticalPressureCounter))
+	warnIfNotSet(setIfNotNil(mem.fields, "total_bytes", rs.GetMemTotalBytes))
+	warnIfNotSet(setIfNotNil(mem.fields, "total_memsw_bytes", rs.GetMemTotalMemswBytes))
+	warnIfNotSet(setIfNotNil(mem.fields, "limit_bytes", rs.GetMemLimitBytes))
+	warnIfNotSet(setIfNotNil(mem.fields, "soft_limit_bytes", rs.GetMemSoftLimitBytes))
+	warnIfNotSet(setIfNotNil(mem.fields, "file_bytes", rs.GetMemFileBytes))
+	warnIfNotSet(setIfNotNil(mem.fields, "anon_bytes", rs.GetMemAnonBytes))
+	warnIfNotSet(setIfNotNil(mem.fields, "cache_bytes", rs.GetMemCacheBytes))
+	warnIfNotSet(setIfNotNil(mem.fields, "rss_bytes", rs.GetMemRSSBytes))
+	warnIfNotSet(setIfNotNil(mem.fields, "mapped_file_bytes", rs.GetMemMappedFileBytes))
+	warnIfNotSet(setIfNotNil(mem.fields, "swap_bytes", rs.GetMemSwapBytes))
+	warnIfNotSet(setIfNotNil(mem.fields, "unevictable_bytes", rs.GetMemUnevictableBytes))
+	warnIfNotSet(setIfNotNil(mem.fields, "low_pressure_counter", rs.GetMemLowPressureCounter))
+	warnIfNotSet(setIfNotNil(mem.fields, "medium_pressure_counter", rs.GetMemMediumPressureCounter))
+	warnIfNotSet(setIfNotNil(mem.fields, "critical_pressure_counter", rs.GetMemCriticalPressureCounter))
 
-	warnIfNotSet(setIfNotNil(results, "disk_limit_bytes", rs.GetDiskLimitBytes))
-	warnIfNotSet(setIfNotNil(results, "disk_used_bytes", rs.GetDiskUsedBytes))
-	// TODO: Disk statistics (*rs.DiskStatistics)
-	// TODO: Blkio statistics (*rs.BlkioStatistics)
-	// TODO: Perf statistics (*rs.Perf)
-	warnIfNotSet(setIfNotNil(results, "net_rx_packets", rs.GetNetRxPackets))
-	warnIfNotSet(setIfNotNil(results, "net_rx_bytes", rs.GetNetRxBytes))
-	warnIfNotSet(setIfNotNil(results, "net_rx_errors", rs.GetNetRxErrors))
-	warnIfNotSet(setIfNotNil(results, "net_rx_dropped", rs.GetNetRxDropped))
-	warnIfNotSet(setIfNotNil(results, "net_tx_packets", rs.GetNetTxPackets))
-	warnIfNotSet(setIfNotNil(results, "net_tx_bytes", rs.GetNetTxBytes))
-	warnIfNotSet(setIfNotNil(results, "net_tx_errors", rs.GetNetTxErrors))
-	warnIfNotSet(setIfNotNil(results, "net_tx_dropped", rs.GetNetTxDropped))
-	warnIfNotSet(setIfNotNil(results, "net_tcp_rtt_microsecs_p50", rs.GetNetTCPRttMicrosecsP50))
-	warnIfNotSet(setIfNotNil(results, "net_tcp_rtt_microsecs_p90", rs.GetNetTCPRttMicrosecsP90))
-	warnIfNotSet(setIfNotNil(results, "net_tcp_rtt_microsecs_p95", rs.GetNetTCPRttMicrosecsP95))
-	warnIfNotSet(setIfNotNil(results, "net_tcp_rtt_microsecs_p99", rs.GetNetTCPRttMicrosecsP99))
-	warnIfNotSet(setIfNotNil(results, "net_tcp_active_connections", rs.GetNetTCPActiveConnections))
-	warnIfNotSet(setIfNotNil(results, "net_tcp_time_wait_connections", rs.GetNetTCPTimeWaitConnections))
-	// TODO: Net traffic control statistics (*rs.NetTrafficControlStatistics)
-	// TODO: Net snmp statistics (*rs.NetSNMPStatistics)
+	warnIfNotSet(setIfNotNil(disk.fields, "limit_bytes", rs.GetDiskLimitBytes))
+	warnIfNotSet(setIfNotNil(disk.fields, "used_bytes", rs.GetDiskUsedBytes))
+
+	// TODO (philipnrmn) *rs.DiskStatistics for per-volume stats
+
+	if bs := rs.GetBlkioStatistics(); bs != nil {
+		results = append(results, cBlkioMeasurements(*bs)...)
+	}
+
+	// TODO (philipnrmn) *rs.Perf for perf stats
+
+	warnIfNotSet(setIfNotNil(net.fields, "rx_packets", rs.GetNetRxPackets))
+	warnIfNotSet(setIfNotNil(net.fields, "rx_bytes", rs.GetNetRxBytes))
+	warnIfNotSet(setIfNotNil(net.fields, "rx_errors", rs.GetNetRxErrors))
+	warnIfNotSet(setIfNotNil(net.fields, "rx_dropped", rs.GetNetRxDropped))
+	warnIfNotSet(setIfNotNil(net.fields, "tx_packets", rs.GetNetTxPackets))
+	warnIfNotSet(setIfNotNil(net.fields, "tx_bytes", rs.GetNetTxBytes))
+	warnIfNotSet(setIfNotNil(net.fields, "tx_errors", rs.GetNetTxErrors))
+	warnIfNotSet(setIfNotNil(net.fields, "tx_dropped", rs.GetNetTxDropped))
+	warnIfNotSet(setIfNotNil(net.fields, "tcp_rtt_microsecs_p50", rs.GetNetTCPRttMicrosecsP50))
+	warnIfNotSet(setIfNotNil(net.fields, "tcp_rtt_microsecs_p90", rs.GetNetTCPRttMicrosecsP90))
+	warnIfNotSet(setIfNotNil(net.fields, "tcp_rtt_microsecs_p95", rs.GetNetTCPRttMicrosecsP95))
+	warnIfNotSet(setIfNotNil(net.fields, "tcp_rtt_microsecs_p99", rs.GetNetTCPRttMicrosecsP99))
+	warnIfNotSet(setIfNotNil(net.fields, "tcp_active_connections", rs.GetNetTCPActiveConnections))
+	warnIfNotSet(setIfNotNil(net.fields, "tcp_time_wait_connections", rs.GetNetTCPTimeWaitConnections))
+	// TODO (philipnrmn) *rs.NetTrafficControlStatistics  for net traffic control statistics
+	// TODO (philipnrmn) *rs.NetSNMPStatistics for net snmp statistics
 
 	return results
+}
+
+// cBlkioMeasurement flattens the deeply nested blkio statistics struct into
+// a set of measurements, tagged by device ID and blkio policy
+func cBlkioMeasurements(bs mesos.CgroupInfo_Blkio_Statistics) []measurement {
+	var results []measurement
+
+	for _, cfq := range bs.GetCFQ() {
+		blkio := newMeasurement("blkio")
+		blkio.tags["policy"] = "cfq"
+		if dev := cfq.GetDevice(); dev != nil {
+			blkio.tags["device"] = fmt.Sprintf("%d.%d", dev.GetMajorNumber(), dev.GetMinorNumber())
+		} else {
+			blkio.tags["device"] = "default"
+		}
+		warnIfNotSet(setIfNotNil(blkio.fields, "io_serviced", blkioTotalGetter(cfq.GetIOServiced)))
+		warnIfNotSet(setIfNotNil(blkio.fields, "io_service_bytes", blkioTotalGetter(cfq.GetIOServiceBytes)))
+		warnIfNotSet(setIfNotNil(blkio.fields, "io_service_time", blkioTotalGetter(cfq.GetIOServiceTime)))
+		warnIfNotSet(setIfNotNil(blkio.fields, "io_wait_time", blkioTotalGetter(cfq.GetIOWaitTime)))
+		warnIfNotSet(setIfNotNil(blkio.fields, "io_merged", blkioTotalGetter(cfq.GetIOMerged)))
+		warnIfNotSet(setIfNotNil(blkio.fields, "io_queued", blkioTotalGetter(cfq.GetIOQueued)))
+
+		results = append(results, blkio)
+	}
+
+	return results
+}
+
+// blkioTotalGetter is a convenience method allowing us to unpick the nested
+// blkio_value object. It returns a method which when invoked, returns the
+// value of the total of the field returned by its parameter function
+func blkioTotalGetter(f func() []mesos.CgroupInfo_Blkio_Value) func() uint64 {
+	return func() uint64 {
+		for _, v := range f() {
+			// TODO (philipnrmn) consider returning all operations, not just total
+			if v.GetOp() == mesos.CgroupInfo_Blkio_TOTAL {
+				return v.GetValue()
+			}
+		}
+		return 0
+	}
 }
 
 // cTags extracts relevant metadata from a Container object as a map of tags
