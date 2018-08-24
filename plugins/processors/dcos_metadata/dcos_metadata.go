@@ -1,31 +1,23 @@
 package dcos_metadata
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"io"
 	"log"
-	"math"
 	"time"
 
 	"github.com/influxdata/telegraf"
-	"github.com/influxdata/telegraf/plugins/inputs"
-
-	"github.com/mesos/mesos-go/api/v1/lib"
-	"github.com/mesos/mesos-go/api/v1/lib/agent"
-	"github.com/mesos/mesos-go/api/v1/lib/agent/calls"
-	"github.com/mesos/mesos-go/api/v1/lib/httpcli"
-	"github.com/mesos/mesos-go/api/v1/lib/httpcli/httpagent"
+	"github.com/influxdata/telegraf/plugins/processors"
 )
 
 type DCOSMetadata struct {
 	MesosAgentUrl string
+	Timeout       time.Duration
 }
 
 const sampleConfig = `
 ## The URL of the local mesos agent
 mesos_agent_url = "http://$NODE_PRIVATE_IP:5051"
+## The period after which requests to mesos agent should time out
+timeout = "10s"
 `
 
 // SampleConfig returns the default configuration
@@ -38,7 +30,7 @@ func (dm *DCOSMetadata) Description() string {
 	return "Plugin for adding metadata to dcos-specific metrics"
 }
 
-// Apply the filter to the given metric
+// Apply the filter to the given metrics
 func (dm *DCOSMetadata) Apply(in ...telegraf.Metric) []telegraf.Metric {
 	for _, metric := range in {
 		log.Println(metric)
@@ -52,8 +44,9 @@ func (dm *DCOSMetadata) Apply(in ...telegraf.Metric) []telegraf.Metric {
 
 // init is called once when telegraf starts
 func init() {
-	log.Println("dcos_metadata::init")
 	processors.Add("dcos_metadata", func() telegraf.Processor {
-		return &DCOSMetadata{}
+		return &DCOSMetadata{
+			Timeout: 10 * time.Second,
+		}
 	})
 }
