@@ -13,16 +13,8 @@ generate it using `telegraf --usage dcos_containers`.
 [[inputs.dcos_containers]]
   ## The URL of the mesos agent
   mesos_agent_url = "http://localhost:5051"
-
   ## The period after which requests to mesos agent should time out
   timeout = 10s
-
-  ## Optional TLS Config
-  # tls_ca = "/etc/telegraf/ca.pem"
-  # tls_cert = "/etc/telegraf/cert.pem"
-  # tls_key = "/etc/telegraf/key.pem"
-  ## Use TLS but skip chain & host verification
-  # insecure_skip_verify = false
 ```
 
 With minimal configuration, this plugin expects the cluster to be in permissive
@@ -97,5 +89,5 @@ All metrics have the following tag:
 ```
 $ telegraf --config dcos.conf --input-filter dcos_container --test
 * Plugin: dcos_container
-    cpus,host=172.17.8.102,task_name=nginx-server-0,executor_name=nginx-server,service_name=nginx,container_id=12377985-615c-4a1a-a491-721ce7cd807a user_time_secs=10,system_time_secs=1,limit=4,nr_periods=11045,nr_throttled=132,throttled_time_seconds=1 1453831884664956455
+    cpus,host=172.17.8.102,container_id=12377985-615c-4a1a-a491-721ce7cd807a user_time_secs=10,system_time_secs=1,limit=4,nr_periods=11045,nr_throttled=132,throttled_time_seconds=1 1453831884664956455
 ```
