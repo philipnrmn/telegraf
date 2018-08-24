@@ -19,8 +19,6 @@ import (
 )
 
 func main() {
-	// files, err := ioutil.ReadDir("./testdata")
-
 	err := filepath.Walk("./testdata", func(fPath string, info os.FileInfo, err error) error {
 		barf(err)
 		if info.IsDir() {
