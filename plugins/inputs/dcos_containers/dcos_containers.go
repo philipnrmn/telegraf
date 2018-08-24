@@ -304,7 +304,6 @@ func warnIfNotSet(err error) {
 
 // init is called once when telegraf starts
 func init() {
-	log.Println("dcos_containers::init")
 	inputs.Add("dcos_containers", func() telegraf.Input {
 		return &DCOSContainers{
 			Timeout: 10 * time.Second,
