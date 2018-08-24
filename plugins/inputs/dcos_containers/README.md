@@ -17,9 +17,6 @@ generate it using `telegraf --usage dcos_containers`.
   timeout = 10s
 ```
 
-With minimal configuration, this plugin expects the cluster to be in permissive
-mode. Strict mode requires TLS configuration. 
-
 ### Metrics:
 
  - container
