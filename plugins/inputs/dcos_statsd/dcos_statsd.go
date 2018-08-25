@@ -21,7 +21,8 @@ type DCOSStatsd struct {
 	// Listen is the address on which we listen
 	Listen string
 
-	apiServer        *http.Server
+	apiServer *http.Server
+	// TODO eliminate the serverController
 	serverController api.ServerController
 }
 
@@ -49,16 +50,15 @@ func (ds *DCOSStatsd) Start(_ telegraf.Accumulator) error {
 	log.Println("dcos_statsd::start")
 	router := api.NewRouter(ds.serverController)
 
-	srv := &http.Server{
+	ds.apiServer = &http.Server{
 		Handler: router,
 		Addr:    ds.Listen,
 		// TODO configurable timeouts
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
-	ds.apiServer = srv
 	go func() {
-		if err := srv.ListenAndServe(); err != nil {
+		if err := ds.apiServer.ListenAndServe(); err != nil {
 			log.Fatal(err)
 		}
 	}()
@@ -71,6 +71,7 @@ func (ds *DCOSStatsd) Stop() {
 	log.Println("dcos_statsd::stop")
 	// TODO configurable timeouts
 	ctx, _ := context.WithTimeout(context.Background(), 15*time.Second)
+	log.Println(ds.apiServer)
 	ds.apiServer.Shutdown(ctx)
 	// TODO shut down all statsd instances
 }
