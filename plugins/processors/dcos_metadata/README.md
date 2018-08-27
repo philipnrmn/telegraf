@@ -14,6 +14,8 @@ appropriate metadata in the form of DC/OS primitives.
   mesos_agent_url = "http://localhost:5051"
   ## The period after which requests to mesos agent should time out
   timeout = "10s"
+  ## The minimum period between requests to the mesos agent
+  rate_limit = "5s"
 ```
 
 ### Tags:

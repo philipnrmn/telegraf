@@ -6,10 +6,13 @@
                 {
                     "name": "task",
                     "task_id": {
-                        "value": "task.484807ed-8af9-11e8-8d69-5ab0267d490f"
+                        "value": "task.id"
+                    },
+                    "executor_id": {
+                      "value": "executor.id"
                     },
                     "framework_id": {
-                        "value": "577637a3-cbf2-4f38-a227-578b0783eabf-0001"
+                        "value": "framework.id"
                     },
                     "agent_id": {
                         "value": "577637a3-cbf2-4f38-a227-578b0783eabf-S1"
@@ -40,7 +43,7 @@
                     "statuses": [
                         {
                             "task_id": {
-                                "value": "task.484807ed-8af9-11e8-8d69-5ab0267d490f"
+                                "value": "task.id"
                             },
                             "state": "TASK_STARTING",
                             "source": "SOURCE_EXECUTOR",
@@ -48,7 +51,7 @@
                                 "value": "577637a3-cbf2-4f38-a227-578b0783eabf-S1"
                             },
                             "executor_id": {
-                                "value": "task.484807ed-8af9-11e8-8d69-5ab0267d490f"
+                                "value": "executor.id"
                             },
                             "timestamp": 1531966390.65146,
                             "uuid": "VhSyIEWERZ+TACh/C8069A==",
@@ -71,7 +74,7 @@
                         },
                         {
                             "task_id": {
-                                "value": "task.484807ed-8af9-11e8-8d69-5ab0267d490f"
+                                "value": "task.id"
                             },
                             "state": "TASK_RUNNING",
                             "source": "SOURCE_EXECUTOR",
@@ -79,13 +82,13 @@
                                 "value": "577637a3-cbf2-4f38-a227-578b0783eabf-S1"
                             },
                             "executor_id": {
-                                "value": "task.484807ed-8af9-11e8-8d69-5ab0267d490f"
+                                "value": "executor.id"
                             },
                             "timestamp": 1531966390.65338,
                             "uuid": "ty1hNWPjSimw2woXDwIKTw==",
                             "container_status": {
                                 "container_id": {
-                                    "value": "e51d2265-e21d-4e48-9e98-92cbad7455f3"
+                                    "value": "abc123"
                                 },
                                 "network_infos": [
                                     {
@@ -108,7 +111,16 @@
                             {
                                 "key": "DCOS_SPACE",
                                 "value": "/task"
+                            },
+                            {
+                                "key": "DCOS_METRICS_FOO",
+                                "value": "bar"
+                            },
+                            {
+                              "key": "DCOS_METRICS_BAZ",
+                              "value": "qux"
                             }
+
                         ]
                     },
                     "discovery": {
@@ -128,10 +140,10 @@
                 {
                     "executor_info": {
                         "executor_id": {
-                            "value": "task.484807ed-8af9-11e8-8d69-5ab0267d490f"
+                            "value": "executor.id"
                         },
                         "framework_id": {
-                            "value": "577637a3-cbf2-4f38-a227-578b0783eabf-0001"
+                            "value": "framework.id"
                         },
                         "command": {
                             "environment": {

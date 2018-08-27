@@ -57,6 +57,9 @@
                             "uuid": "VhSyIEWERZ+TACh/C8069A==",
                             "container_status": {
                                 "container_id": {
+                                    "parent": {
+                                        "value": "xyz123"
+                                    },
                                     "value": "abc123"
                                 },
                                 "network_infos": [
@@ -88,6 +91,9 @@
                             "uuid": "ty1hNWPjSimw2woXDwIKTw==",
                             "container_status": {
                                 "container_id": {
+                                    "parent": {
+                                        "value": "xyz123"
+                                    },
                                     "value": "abc123"
                                 },
                                 "network_infos": [
@@ -111,14 +117,6 @@
                             {
                                 "key": "DCOS_SPACE",
                                 "value": "/task"
-                            },
-                            {
-                                "key": "DCOS_METRICS_FOO",
-                                "value": "bar"
-                            },
-                            {
-                              "key": "DCOS_METRICS_BAZ",
-                              "value": "qux"
                             }
                         ]
                     },
