@@ -133,6 +133,37 @@ var (
 					map[string]string{}},
 			},
 		},
+		// No executor;
+		testCase{
+			fixture: "noexecutor",
+			inputs: []telegraf.Metric{
+				newMetric("test",
+					map[string]string{"container_id": "abc123"},
+					map[string]interface{}{"value": int64(1)},
+					time.Now(),
+				),
+			},
+			expected: []telegraf.Metric{
+				newMetric("test",
+					map[string]string{
+						"container_id": "abc123",
+						"service_name": "framework",
+						// no executor tag at all
+						"task_name": "task",
+					},
+					map[string]interface{}{"value": int64(1)},
+					time.Now(),
+				),
+			},
+			cachedContainers: map[string]containerInfo{
+				"abc123": containerInfo{"abc123", "task", "", "framework",
+					map[string]string{}},
+			},
+			containers: map[string]containerInfo{
+				"abc123": containerInfo{"abc123", "task", "", "framework",
+					map[string]string{}},
+			},
+		},
 	}
 )
 

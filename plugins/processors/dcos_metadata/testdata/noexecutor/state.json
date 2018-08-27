@@ -8,9 +8,6 @@
                     "task_id": {
                         "value": "task.id"
                     },
-                    "executor_id": {
-                        "value": "executor.id"
-                    },
                     "framework_id": {
                         "value": "framework.id"
                     },
@@ -111,14 +108,6 @@
                             {
                                 "key": "DCOS_SPACE",
                                 "value": "/task"
-                            },
-                            {
-                                "key": "DCOS_METRICS_FOO",
-                                "value": "bar"
-                            },
-                            {
-                              "key": "DCOS_METRICS_BAZ",
-                              "value": "qux"
                             }
                         ]
                     },
