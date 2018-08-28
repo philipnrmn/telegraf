@@ -6,23 +6,23 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/influxdata/telegraf/plugins/inputs/dcos_statsd"
+	"github.com/influxdata/telegraf/plugins/inputs/dcos_statsd/containers"
 )
 
 type Route struct {
 	Name        string
 	Method      string
 	Pattern     string
-	HandlerFunc func(ds dcos_statsd.DCOSStatsd) http.HandlerFunc
+	HandlerFunc func(c containers.Controller) http.HandlerFunc
 }
 
 type Routes []Route
 
-func NewRouter(ds dcos_statsd.DCOSStatsd) *mux.Router {
+func NewRouter(c containers.Controller) *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
 	for _, route := range routes {
 		var handler http.Handler
-		handler = route.HandlerFunc(ds)
+		handler = route.HandlerFunc(c)
 		handler = Logger(handler, route.Name)
 
 		router.
@@ -35,7 +35,7 @@ func NewRouter(ds dcos_statsd.DCOSStatsd) *mux.Router {
 	return router
 }
 
-func Index(ds dcos_statsd.DCOSStatsd) http.HandlerFunc {
+func Index(_ containers.Controller) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 		w.WriteHeader(http.StatusNotFound)

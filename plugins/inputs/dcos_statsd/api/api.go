@@ -5,10 +5,10 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/influxdata/telegraf/plugins/inputs/dcos_statsd"
+	"github.com/influxdata/telegraf/plugins/inputs/dcos_statsd/containers"
 )
 
-func ReportHealth(_ dcos_statsd.DCOSStatsd) http.HandlerFunc {
+func ReportHealth(_ containers.Controller) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 		w.WriteHeader(http.StatusOK)
@@ -16,7 +16,7 @@ func ReportHealth(_ dcos_statsd.DCOSStatsd) http.HandlerFunc {
 	}
 }
 
-func ListContainers(_ dcos_statsd.DCOSStatsd) http.HandlerFunc {
+func ListContainers(_ containers.Controller) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		w.WriteHeader(http.StatusOK)
@@ -24,7 +24,7 @@ func ListContainers(_ dcos_statsd.DCOSStatsd) http.HandlerFunc {
 	}
 }
 
-func DescribeContainer(_ dcos_statsd.DCOSStatsd) http.HandlerFunc {
+func DescribeContainer(_ containers.Controller) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		w.WriteHeader(http.StatusOK)
@@ -32,9 +32,9 @@ func DescribeContainer(_ dcos_statsd.DCOSStatsd) http.HandlerFunc {
 	}
 }
 
-func AddContainer(_ dcos_statsd.DCOSStatsd) http.HandlerFunc {
+func AddContainer(_ containers.Controller) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var c Container
+		var c containers.Container
 		decoder := json.NewDecoder(r.Body)
 		if err := decoder.Decode(&c); err != nil {
 			log.Printf("E! could not decode json: %s", err)
@@ -54,7 +54,7 @@ func AddContainer(_ dcos_statsd.DCOSStatsd) http.HandlerFunc {
 	}
 }
 
-func RemoveContainer(_ dcos_statsd.DCOSStatsd) http.HandlerFunc {
+func RemoveContainer(_ containers.Controller) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		w.WriteHeader(http.StatusAccepted)
