@@ -31,17 +31,26 @@ func (ds *DCOSStatsd) Description() string {
 
 // Start is called when the service plugin is ready to start working
 func (ds *DCOSStatsd) Start(_ telegraf.Accumulator) error {
+	// TODO start the command API
+	// TODO load containers from disc
+	// TODO start servers
 	return nil
 }
 
 // Gather takes in an accumulator and adds the metrics that the plugin gathers.
 // It is invoked on a schedule (default every 10s) by the telegraf runtime.
 func (ds *DCOSStatsd) Gather(_ telegraf.Accumulator) error {
+	// TODO instantiate a custom accumulator for each plugin
+	// TODO wait for all plugins to accumulate their metrics
+	// TODO add container_id tags to each metric
+	// TODO pass all metrics into the telegraf accumulator
 	return nil
 }
 
 // Stop is called when the service plugin needs to stop working
 func (ds *DCOSStatsd) Stop() {
+	// TODO stop the command API
+	// TODO stop servers
 }
 
 func init() {
