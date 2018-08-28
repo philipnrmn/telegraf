@@ -17,7 +17,7 @@ const sampleConfig = `
 ## The address on which the command API should listen
 listen = ":8888"
 ## The directory in which container information is stored
-containers_dir = "/run/dcos/mesos/isolators/com_mesosphere_MetricsIsolatorModule/containers"
+containers_dir = "/run/dcos/telegraf/dcos_statsd/containers"
 ## The period after which requests to the API should time out
 timeout = "15s"
 `
@@ -112,7 +112,7 @@ func (ds *DCOSStatsd) RemoveContainer(c containers.Container) error {
 func init() {
 	inputs.Add("dcos_statsd", func() telegraf.Input {
 		return &DCOSStatsd{
-			ContainersDir: "/run/dcos/mesos/isolators/com_mesosphere_MetricsIsolatorModule/containers",
+			ContainersDir: "/run/dcos/telegraf/dcos_statsd/containers",
 			Timeout:       internal.Duration{Duration: 10 * time.Second},
 		}
 	})
