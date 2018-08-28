@@ -9,5 +9,5 @@ type Container struct {
 	StatsdHost string `json:"statsd_host,omitempty"`
 	StatsdPort int    `json:"statsd_port,omitempty"`
 	// Server is a telegraf statsd input plugin instance
-	Server statsd.Statsd `json:"-"`
+	Server *statsd.Statsd `json:"-"`
 }
