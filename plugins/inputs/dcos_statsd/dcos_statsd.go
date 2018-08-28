@@ -1,6 +1,8 @@
 package dcos_statsd
 
 import (
+	"context"
+	"log"
 	"net/http"
 	"time"
 
@@ -50,6 +52,13 @@ func (ds *DCOSStatsd) Start(_ telegraf.Accumulator) error {
 		ReadTimeout:  ds.Timeout.Duration,
 	}
 
+	go func() {
+		err := ds.apiServer.ListenAndServe()
+		log.Printf("I! dcos_statsd API server closed: %s", err)
+	}()
+
+	log.Printf("I! dcos_statsd API server listening on %s", ds.Listen)
+
 	// TODO load containers from disc
 	// TODO start servers
 	return nil
@@ -67,7 +76,9 @@ func (ds *DCOSStatsd) Gather(_ telegraf.Accumulator) error {
 
 // Stop is called when the service plugin needs to stop working
 func (ds *DCOSStatsd) Stop() {
-	// TODO stop the command API
+	ctx, cancel := context.WithTimeout(context.Background(), ds.Timeout.Duration)
+	defer cancel()
+	ds.apiServer.Shutdown(ctx)
 	// TODO stop servers
 }
 
