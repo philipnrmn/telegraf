@@ -16,11 +16,16 @@ func ReportHealth(_ containers.Controller) http.HandlerFunc {
 	}
 }
 
-func ListContainers(_ containers.Controller) http.HandlerFunc {
+func ListContainers(c containers.Controller) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		data, err := json.Marshal(c.ListContainers())
+		if err != nil {
+			w.WriteHeader(http.StatusOK)
+		}
+
 		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		w.WriteHeader(http.StatusOK)
-		// TODO list containers
+		w.Write(data)
 	}
 }
 

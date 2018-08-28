@@ -12,11 +12,28 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var (
+	API_TESTS = map[string]string{
+		"/containers": "[]",
+	}
+)
+
 func TestStart(t *testing.T) {
 	ds := DCOSStatsd{}
 	// startTestServer runs a /health request test
 	addr := startTestServer(t, &ds)
 	defer ds.Stop()
+
+	for path, expected := range API_TESTS {
+		t.Run(path, func(t *testing.T) {
+			resp, err := http.Get(addr + path)
+			assert.Nil(t, err)
+			defer resp.Body.Close()
+			body, err := ioutil.ReadAll(resp.Body)
+			assert.Nil(t, err)
+			assert.Equal(t, expected, string(body))
+		})
+	}
 
 	// TODO test that saved statsd servers are started
 }
