@@ -1,4 +1,4 @@
-package api
+package containers
 
 import (
 	"github.com/influxdata/telegraf/plugins/inputs/statsd"
