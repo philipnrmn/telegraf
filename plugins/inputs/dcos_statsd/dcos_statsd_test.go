@@ -12,28 +12,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	API_TESTS = map[string]string{
-		"/containers": "[]",
-	}
-)
-
 func TestStart(t *testing.T) {
 	ds := DCOSStatsd{}
 	// startTestServer runs a /health request test
 	addr := startTestServer(t, &ds)
 	defer ds.Stop()
 
-	for path, expected := range API_TESTS {
-		t.Run(path, func(t *testing.T) {
-			resp, err := http.Get(addr + path)
-			assert.Nil(t, err)
-			defer resp.Body.Close()
-			body, err := ioutil.ReadAll(resp.Body)
-			assert.Nil(t, err)
-			assert.Equal(t, expected, string(body))
-		})
-	}
+	// Check that no containers were created
+	resp, err := http.Get(addr + "/containers")
+	assertResponseWas(t, resp, err, "[]")
 
 	// TODO test that saved statsd servers are started
 }
@@ -91,4 +78,13 @@ func findFreePort() int {
 
 	addr := ln.Addr().(*net.TCPAddr)
 	return addr.Port
+}
+
+// assertResponseWas is a convenience method for testing http request responses
+func assertResponseWas(t *testing.T, r *http.Response, err error, expected string) {
+	assert.Nil(t, err)
+	defer r.Body.Close()
+	body, err := ioutil.ReadAll(r.Body)
+	assert.Nil(t, err)
+	assert.Equal(t, expected, string(body))
 }
