@@ -29,6 +29,7 @@ type DCOSStatsd struct {
 	ContainersDir string
 	Timeout       internal.Duration
 	apiServer     *http.Server
+	containers    []containers.Container
 }
 
 // SampleConfig returns the default configuration
@@ -43,7 +44,6 @@ func (ds *DCOSStatsd) Description() string {
 
 // Start is called when the service plugin is ready to start working
 func (ds *DCOSStatsd) Start(_ telegraf.Accumulator) error {
-	// TODO start the command API
 	router := api.NewRouter(ds)
 	ds.apiServer = &http.Server{
 		Handler:      router,
