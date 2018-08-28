@@ -68,6 +68,12 @@ paths:
           description: "Container added, but no server will be started. This \
             \ only happens when the agent is aware that the container in \
             \ question will not produce statsd metrics."
+        303:
+          description: "Container not added; container already exists and has \
+            \ the specified address."
+        409:
+          description: "Container not added; server could not be started as \
+            \ the specified address was occupied by another process."
         503:
           description: "Container not added; server could not be started"
   /container/{id}:
