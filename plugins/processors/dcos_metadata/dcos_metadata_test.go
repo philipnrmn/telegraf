@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/internal"
 	"github.com/influxdata/telegraf/metric"
 	"github.com/stretchr/testify/assert"
 )
@@ -175,7 +176,8 @@ func TestApply(t *testing.T) {
 
 			dm := DCOSMetadata{
 				MesosAgentUrl: server.URL,
-				Timeout:       100 * time.Millisecond,
+				Timeout:       internal.Duration{100 * time.Millisecond},
+				RateLimit:     internal.Duration{50 * time.Millisecond},
 				containers:    tc.cachedContainers,
 			}
 
@@ -190,9 +192,7 @@ func TestApply(t *testing.T) {
 				assert.Equal(t, expected.Tags(), actual.Tags())
 			}
 
-			time.Sleep(100 * time.Millisecond)
-			// Cache was updated
-			assert.Equal(t, tc.containers, dm.containers)
+			waitForContainersToEqual(t, &dm, tc.containers, 100*time.Millisecond)
 		})
 	}
 }
@@ -205,4 +205,31 @@ func newMetric(name string, tags map[string]string, fields map[string]interface{
 		panic(err)
 	}
 	return m
+}
+
+// waitForContainersToEqual waits for the length of the container cache to
+// change and asserts that they equal the expected, or times out
+func waitForContainersToEqual(t *testing.T, dm *DCOSMetadata, expected map[string]containerInfo, timeout time.Duration) {
+	done := make(chan bool)
+	go func() {
+		for {
+			// acquiring the lock here avoids triggering the go race detector
+			dm.mu.Lock()
+			if len(dm.containers) == len(expected) {
+				done <- true
+				break
+			}
+			dm.mu.Unlock()
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+
+	select {
+	case <-done:
+		assert.Equal(t, dm.containers, expected)
+		return
+	case <-time.After(timeout):
+		assert.Fail(t, "Timed out waiting for a container update")
+		return
+	}
 }

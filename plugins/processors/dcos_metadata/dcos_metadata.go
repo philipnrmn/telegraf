@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/internal"
 	"github.com/influxdata/telegraf/plugins/processors"
 
 	"github.com/mesos/mesos-go/api/v1/lib"
@@ -21,8 +22,8 @@ import (
 
 type DCOSMetadata struct {
 	MesosAgentUrl string
-	Timeout       time.Duration
-	RateLimit     time.Duration
+	Timeout       internal.Duration
+	RateLimit     internal.Duration
 	containers    map[string]containerInfo
 	mu            sync.Mutex
 	once          Once
@@ -93,13 +94,13 @@ func (dm *DCOSMetadata) refresh() {
 	// Subsequent calls to refresh() will be ignored until the RateLimit period
 	// has expired
 	go func() {
-		time.Sleep(dm.RateLimit)
+		time.Sleep(dm.RateLimit.Duration)
 		dm.once.Reset()
 	}()
 	dm.once.Do(func() {
 		uri := dm.MesosAgentUrl + "/api/v1"
 		cli := httpagent.NewSender(httpcli.New(httpcli.Endpoint(uri)).Send)
-		ctx, cancel := context.WithTimeout(context.Background(), dm.Timeout)
+		ctx, cancel := context.WithTimeout(context.Background(), dm.Timeout.Duration)
 		defer cancel()
 
 		state, err := dm.getState(ctx, cli)
@@ -265,8 +266,8 @@ func processResponse(resp mesos.Response, t agent.Response_Type) (agent.Response
 func init() {
 	processors.Add("dcos_metadata", func() telegraf.Processor {
 		return &DCOSMetadata{
-			Timeout:   10 * time.Second,
-			RateLimit: 5 * time.Second,
+			Timeout:   internal.Duration{10 * time.Second},
+			RateLimit: internal.Duration{5 * time.Second},
 		}
 	})
 }
