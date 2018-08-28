@@ -14,6 +14,7 @@ import (
 const sampleConfig = `
 ## The address on which to listen
 listen = ":8088"
+## The directory in which container information is persisted
 `
 
 // DCOSStatsd describes the options available to this plugin
@@ -70,7 +71,8 @@ func (ds *DCOSStatsd) Start(_ telegraf.Accumulator) error {
 func (ds *DCOSStatsd) Stop() {
 	log.Println("dcos_statsd::stop")
 	// TODO configurable timeouts
-	ctx, _ := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 	log.Println(ds.apiServer)
 	ds.apiServer.Shutdown(ctx)
 	// TODO shut down all statsd instances

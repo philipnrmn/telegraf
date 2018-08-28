@@ -13,13 +13,10 @@ import (
 )
 
 type Container struct {
-	Id string `json:"container_id"`
-
-	StatsdHost string `json:"statsd_host,omitempty"`
-
-	StatsdPort int `json:"statsd_port,omitempty"`
-
-	Server statsd.Statsd `json:"-"`
+	Id         string        `json:"container_id"`
+	StatsdHost string        `json:"statsd_host,omitempty"`
+	StatsdPort int           `json:"statsd_port,omitempty"`
+	Server     statsd.Statsd `json:"-"`
 }
 
 type ServerController interface {

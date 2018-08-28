@@ -44,15 +44,17 @@ func xTestStop(t *testing.T) {
 	assert.Nil(t, resp)
 	assert.NotNil(t, err)
 	// TODO test that Stop() stops all the servers
-
+	// TODO test that Stop() persists servers to disk
 }
 
 // TODO TestGather
 func TestGather(t *testing.T) {
 	ds := DCOSStatsd{}
 	addr, err := startTestAPIServer(t, ds)
+	t.Log("Listening on ", addr)
 	defer ds.Stop()
 	assert.Nil(t, err)
+
 	t.Run("With a single server running", func(t *testing.T) {})
 	t.Run("With multiple servers running", func(t *testing.T) {})
 	t.Run("With no servers running", func(t *testing.T) {})
@@ -60,7 +62,7 @@ func TestGather(t *testing.T) {
 
 // startAPIServer starts the command server running on an ephemeral port
 func startTestAPIServer(t *testing.T, ds DCOSStatsd) (string, error) {
-	// Find a free port by momentarily listening in :0
+	// Find a free port by momentarily listening on :0
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
 		return "", err
