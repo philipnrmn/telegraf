@@ -7,6 +7,8 @@ import (
 )
 
 func ContainerInfo(_ ServerController) http.HandlerFunc {
+	// TODO health endpoint
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Print("dcos_statsd::ContainerInfo::anon")
 		w.Header().Set("Content-Type", "application/json; charset=UTF-8")

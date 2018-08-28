@@ -1,6 +1,6 @@
-# DC/OS Workloads Plugin
+# DC/OS Statsd Plugin
 
-The DC/OS workloads plugin gathers metrics from applications running as mesos tasks. Tasks with appropriate labels are
+The DC/OS statsd plugin gathers metrics from applications running as mesos tasks. Tasks with appropriate labels are
 instrumented for metrics. 
 
 Service discovery is achieved via a combination of task labels and port labels. Full examples are shown below for each
@@ -58,11 +58,11 @@ Sample marathon app configuration:
 ### Configuration:
 
 This section contains the default TOML to configure the plugin.  You can
-generate it using `telegraf --usage dcos_workloads`.
+generate it using `telegraf --usage dcos_statsd`.
 
 ```toml
 # Telegraf plugin for gathering metrics from mesos tasks
-[[inputs.dcos_workloads]]
+[[inputs.dcos_statsd]]
   ## The address of the mesos agent
   agent_address = "http://localhost:5051"
 
