@@ -32,9 +32,13 @@ generate it using `telegraf --usage dcos_statsd`.
 # Telegraf plugin for gathering metrics from mesos tasks
 [[inputs.dcos_statsd]]
   ## The address on which the command API should listen
-  listen = "localhost:8088"
+  listen = "localhost:8888"
   ## The directory in which container information is persisted
   containers_dir = "/run/dcos/mesos/isolators/com_mesosphere_MetricsIsolatorModule/containers"
+  ## The period after which requests to the API should time out
+  timeout = "15s"
+  ## The hostname or IP address on which to host statsd servers
+  statsd_host = "198.51.100.1"
 ```
 
 With minimal configuration, this plugin expects the cluster to be in permissive mode. Strict mode requires TLS 
