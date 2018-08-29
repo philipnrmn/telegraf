@@ -98,7 +98,10 @@ func (ds *DCOSStatsd) Stop() {
 	ctx, cancel := context.WithTimeout(context.Background(), ds.Timeout.Duration)
 	defer cancel()
 	ds.apiServer.Shutdown(ctx)
-	// TODO stop servers
+
+	for _, c := range ds.containers {
+		c.Server.Stop()
+	}
 }
 
 // ListContainers returns a list of known containers

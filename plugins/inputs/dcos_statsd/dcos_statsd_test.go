@@ -1,6 +1,7 @@
 package dcos_statsd
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -60,16 +61,38 @@ func TestStart(t *testing.T) {
 }
 
 func TestStop(t *testing.T) {
-	ds := DCOSStatsd{}
-	addr := startTestServer(t, &ds)
-	ds.Stop()
+	t.Run("Server with no containers", func(t *testing.T) {
+		ds := DCOSStatsd{}
+		addr := startTestServer(t, &ds)
+		ds.Stop()
 
-	// Test that the server has stopped
-	resp, err := http.Get(addr + "/health")
-	assert.NotNil(t, err)
-	assert.Nil(t, resp)
+		// Test that the server has stopped
+		resp, err := http.Get(addr + "/health")
+		assert.NotNil(t, err)
+		assert.Nil(t, resp)
+	})
 
-	// TODO test that all statsd servers are stopped
+	t.Run("Server with a container", func(t *testing.T) {
+		ds := DCOSStatsd{}
+		addr := startTestServer(t, &ds)
+
+		port := findFreePort()
+		ctrjson := fmt.Sprintf(`{"container_id": "abc123","statsd_host": "127.0.0.1","statsd_port":%d}`, port)
+		http.Post(addr+"/container", "application/json", bytes.NewBuffer([]byte(ctrjson)))
+		ds.Stop()
+
+		// Test that the server has stopped
+		resp, err := http.Get(addr + "/health")
+		assert.NotNil(t, err)
+		assert.Nil(t, resp)
+
+		// Test that the statsd server has stopped by listening on the same port
+		t.Log("Dialing 127.0.0.1:", port)
+		statsdAddr, _ := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", port))
+		ln, err := net.ListenUDP("udp", statsdAddr)
+		assert.Nil(t, err)
+		ln.Close()
+	})
 }
 
 func TestGather(t *testing.T) {
