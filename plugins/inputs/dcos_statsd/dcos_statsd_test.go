@@ -163,6 +163,18 @@ func TestGather(t *testing.T) {
 	err = acc.GatherError(ds.Gather)
 	assert.Nil(t, err)
 
+	err = waitFor(func() bool {
+		acc.Lock()
+		defer acc.Unlock()
+		for _, p := range acc.Metrics {
+			if p.Measurement == "foo" && p.Fields["value"] == int64(1230) {
+				return true
+			}
+		}
+		return false
+	})
+
+	assert.Nil(t, err)
 	acc.AssertContainsFields(t, "foo", map[string]interface{}{"value": int64(1230)})
 	acc.AssertContainsTaggedFields(t, "foo",
 		map[string]interface{}{"value": int64(1230)},
