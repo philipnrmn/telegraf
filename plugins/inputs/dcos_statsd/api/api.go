@@ -40,7 +40,7 @@ func ListContainers(c containers.Controller) http.HandlerFunc {
 func DescribeContainer(c containers.Controller) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		cid := vars["cid"]
+		cid := vars["id"]
 
 		ctr, ok := c.GetContainer(cid)
 		if !ok {
@@ -116,7 +116,7 @@ func AddContainer(c containers.Controller) http.HandlerFunc {
 func RemoveContainer(c containers.Controller) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		cid := vars["cid"]
+		cid := vars["id"]
 		ctr, ok := c.GetContainer(cid)
 		if !ok {
 			log.Printf("I! Could not find requested container %q", cid)
