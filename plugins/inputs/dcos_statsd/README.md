@@ -54,6 +54,7 @@ metrics.
 All metrics have the following tags:
 
  - container_id
+ - metrics_type
 
 ### Example Output:
 
@@ -61,6 +62,6 @@ All metrics have the following tags:
 ```
 $ telegraf --config dcos.conf --input-filter dcos_statsd --test
 * Plugin: dcos_statsd
-  cpus,host=172.17.8.102,container_id=12377985-615c-4a1a-a491-721ce7cd807a database.rows.written=12345,database.iops=100
-  1453831884664956455
+  cpus,host=172.17.8.102,container_id=12377985-615c-4a1a-a491-721ce7cd807,metrics_type=counter
+  database.rows.written=12345,database.iops=100 1453831884664956455
 ```
