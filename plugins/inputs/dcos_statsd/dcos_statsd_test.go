@@ -152,6 +152,11 @@ func TestGather(t *testing.T) {
 
 	err = acc.GatherError(ds.Gather)
 	assert.Nil(t, err)
+
+	acc.AssertContainsFields(t, "foo", map[string]interface{}{"value": int64(123)})
+	acc.AssertContainsTaggedFields(t, "foo",
+		map[string]interface{}{"value": int64(123)},
+		map[string]string{"container_id": "abc123"})
 }
 
 // startTestServer starts a server on the specified DCOSStatsd on a randomly

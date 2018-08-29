@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/influxdata/telegraf"
@@ -97,7 +98,19 @@ func (ds *DCOSStatsd) Start(acc telegraf.Accumulator) error {
 
 // Gather takes in an accumulator and adds the metrics that the plugin gathers.
 // It is invoked on a schedule (default every 10s) by the telegraf runtime.
-func (ds *DCOSStatsd) Gather(_ telegraf.Accumulator) error {
+func (ds *DCOSStatsd) Gather(acc telegraf.Accumulator) error {
+	var wg sync.WaitGroup
+	for _, ctr := range ds.containers {
+		wg.Add(1)
+		go func(ctr containers.Container) {
+			defer wg.Done()
+			if err := ctr.Server.Gather(acc); err != nil {
+				log.Printf("E! Error gathering statsd from %s: %s", ctr.Id, err)
+			}
+		}(ctr)
+	}
+	wg.Wait()
+
 	// TODO instantiate a custom accumulator for each plugin
 	// TODO wait for all plugins to accumulate their metrics
 	// TODO add container_id tags to each metric
