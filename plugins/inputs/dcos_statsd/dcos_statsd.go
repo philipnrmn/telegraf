@@ -193,7 +193,12 @@ func (ds *DCOSStatsd) AddContainer(ctr containers.Container) (*containers.Contai
 // Remove container will remove a container and stop any associated server. the
 // host and port need not be present in the container argument.
 func (ds *DCOSStatsd) RemoveContainer(c containers.Container) error {
-	// TODO remove container
+	ctr, ok := ds.GetContainer(c.Id)
+	if !ok {
+		return fmt.Errorf("container %s not found", c.Id)
+	}
+	ctr.Server.Stop()
+	delete(ds.containers, c.Id)
 	return nil
 }
 

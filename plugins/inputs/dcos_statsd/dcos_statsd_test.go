@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs/dcos_statsd/containers"
@@ -165,6 +166,18 @@ func TestGather(t *testing.T) {
 		map[string]interface{}{"value": int64(1230)},
 		map[string]string{"container_id": "xyz123", "metric_type": "counter"})
 
+	t.Log("Removing a container")
+	_, err = httpDelete(t, addr+"/container/abc123")
+	assert.Nil(t, err)
+
+	time.Sleep(time.Second)
+	// The container was removed
+	assert.Equal(t, len(ds.containers), 1)
+
+	// abc123 no longer shows up in /containers
+	resp, err = http.Get(addr + "/containers")
+	assertResponseWas(t, resp, err, fmt.Sprintf("[%s]", xyzjson))
+
 }
 
 // startTestServer starts a server on the specified DCOSStatsd on a randomly
@@ -231,4 +244,16 @@ func dialUDPPort(t *testing.T, port int) net.Conn {
 		assert.Fail(t, "Could not dial UDP ", straddr)
 	}
 	return conn
+}
+
+// httpDelete acts like http.Get, but for delete
+func httpDelete(t *testing.T, addr string) (*http.Response, error) {
+	client := &http.Client{}
+
+	req, err := http.NewRequest("DELETE", addr, nil)
+	if err != nil {
+		assert.Fail(t, "Could not perform delete")
+	}
+
+	return client.Do(req)
 }

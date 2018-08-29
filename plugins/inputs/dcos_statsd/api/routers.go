@@ -73,7 +73,7 @@ var routes = Routes{
 	},
 
 	Route{
-		"RemoveCOntainer",
+		"RemoveContainer",
 		strings.ToUpper("Delete"),
 		"/container/{id}",
 		RemoveContainer,
