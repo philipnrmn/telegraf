@@ -194,7 +194,7 @@ func (ds *DCOSStatsd) AddContainer(ctr containers.Container) (*containers.Contai
 		}
 		err = ioutil.WriteFile(ds.ContainersDir+"/"+ctr.Id, data, 0666)
 		if err != nil {
-			log.Printf("Could not write container %s to disk: %s", ctr.Id, err)
+			log.Printf("E! Could not write container %s to disk: %s", ctr.Id, err)
 			return nil, err
 		}
 	}
@@ -209,6 +209,13 @@ func (ds *DCOSStatsd) RemoveContainer(c containers.Container) error {
 	ctr, ok := ds.GetContainer(c.Id)
 	if !ok {
 		return fmt.Errorf("container %s not found", c.Id)
+	}
+
+	if ds.ContainersDir != "" {
+		if err := os.Remove(ds.ContainersDir + "/" + c.Id); err != nil {
+			log.Printf("E! Could not remove container file %s from disk: %s", c.Id, err)
+			return err
+		}
 	}
 	ctr.Server.Stop()
 	delete(ds.containers, c.Id)

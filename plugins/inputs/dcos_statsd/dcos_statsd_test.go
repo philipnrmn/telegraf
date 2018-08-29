@@ -187,6 +187,10 @@ func TestGather(t *testing.T) {
 	resp, err = http.Get(addr + "/containers")
 	assertResponseWas(t, resp, err, fmt.Sprintf("[%s]", xyzjson))
 
+	files, err = ioutil.ReadDir(ds.ContainersDir)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(files))
+
 }
 
 // startTestServer starts a server on the specified DCOSStatsd on a randomly
