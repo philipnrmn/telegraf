@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs/dcos_statsd/containers"
@@ -179,7 +178,6 @@ func TestGather(t *testing.T) {
 	_, err = httpDelete(t, addr+"/container/abc123")
 	assert.Nil(t, err)
 
-	time.Sleep(time.Second)
 	// The container was removed
 	assert.Equal(t, len(ds.containers), 1)
 
