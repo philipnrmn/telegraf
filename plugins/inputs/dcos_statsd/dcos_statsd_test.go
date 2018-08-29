@@ -3,6 +3,7 @@ package dcos_statsd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs/dcos_statsd/containers"
@@ -207,10 +209,36 @@ func startTestServer(t *testing.T, ds *DCOSStatsd) string {
 	assert.Nil(t, err)
 
 	// Ensure that the command API is ready
-	_, err = http.Get(addr + "/health")
+	err = waitFor(func() bool {
+		_, err := http.Get(addr + "/health")
+		return err == nil
+	})
 	assert.Nil(t, err)
 
 	return addr
+}
+
+// waitFor waits one second for a condition to be true
+func waitFor(cond func() bool) error {
+	done := make(chan bool)
+
+	go func() {
+		for {
+			if cond() {
+				done <- true
+				break
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}()
+
+	select {
+	case <-done:
+		return nil
+	case <-time.After(time.Second):
+		return errors.New("timed out waiting for condition")
+	}
+	return nil
 }
 
 // findFreePort momentarily listens on :0, then closes the connection and
