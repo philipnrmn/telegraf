@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,11 +32,11 @@ containers_dir = "/run/dcos/telegraf/dcos_statsd/containers"
 ## The period after which requests to the API should time out
 timeout = "15s"
 ## The hostname or IP address on which to host statsd servers
-statsd_host = "198.51.100.1"
 `
 
 type DCOSStatsd struct {
-	// Listen is the address on which the command API listens
+	// Listen is the address on which the command API listens. It can be a
+	// host:port pair, or the path to a unix socket
 	Listen string
 	// ContainersDir is the directory in which container information is stored
 	ContainersDir string
@@ -88,8 +89,20 @@ func (ds *DCOSStatsd) Start(acc telegraf.Accumulator) error {
 	}
 
 	go func() {
-		err := ds.apiServer.ListenAndServe()
-		log.Printf("I! dcos_statsd API server closed: %s", err)
+		if strings.Contains(ds.Listen, ":") {
+			err := ds.apiServer.ListenAndServe()
+			log.Printf("I! dcos_statsd API server closed: %s", err)
+		} else {
+			ln, err := net.Listen("unix", ds.Listen)
+			if err != nil {
+				// we use fatal advisedly; this plugin is useless if it can't run its
+				// command server
+				log.Fatalf("E! Could not listen on unix socket %s", ds.Listen)
+			}
+			err = ds.apiServer.Serve(ln)
+			log.Printf("I! dcos_statsd API server closed: %s", err)
+		}
+
 	}()
 	log.Printf("I! dcos_statsd API server listening on %s", ds.Listen)
 
