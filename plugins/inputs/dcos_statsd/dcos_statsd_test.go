@@ -240,8 +240,8 @@ func waitFor(cond func() bool) error {
 				done <- true
 				break
 			}
+			time.Sleep(100 * time.Millisecond)
 		}
-		time.Sleep(100 * time.Millisecond)
 	}()
 
 	select {
