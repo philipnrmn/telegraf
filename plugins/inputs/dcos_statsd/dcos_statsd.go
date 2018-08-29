@@ -32,6 +32,7 @@ containers_dir = "/run/dcos/telegraf/dcos_statsd/containers"
 ## The period after which requests to the API should time out
 timeout = "15s"
 ## The hostname or IP address on which to host statsd servers
+statsd_host = "198.51.100.1"
 `
 
 type DCOSStatsd struct {
