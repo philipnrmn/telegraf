@@ -102,19 +102,16 @@ func (ds *DCOSStatsd) Gather(acc telegraf.Accumulator) error {
 	var wg sync.WaitGroup
 	for _, ctr := range ds.containers {
 		wg.Add(1)
-		go func(ctr containers.Container) {
+		go func(c containers.Container) {
+			var cacc telegraf.Accumulator
+			cacc = &containers.Accumulator{Accumulator: &acc, CId: c.Id}
 			defer wg.Done()
-			if err := ctr.Server.Gather(acc); err != nil {
-				log.Printf("E! Error gathering statsd from %s: %s", ctr.Id, err)
+			if err := c.Server.Gather(cacc); err != nil {
+				log.Printf("E! Error gathering statsd from %s: %s", c.Id, err)
 			}
 		}(ctr)
 	}
 	wg.Wait()
-
-	// TODO instantiate a custom accumulator for each plugin
-	// TODO wait for all plugins to accumulate their metrics
-	// TODO add container_id tags to each metric
-	// TODO pass all metrics into the telegraf accumulator
 	return nil
 }
 
@@ -196,6 +193,7 @@ func (ds *DCOSStatsd) AddContainer(ctr containers.Container) (*containers.Contai
 // Remove container will remove a container and stop any associated server. the
 // host and port need not be present in the container argument.
 func (ds *DCOSStatsd) RemoveContainer(c containers.Container) error {
+	// TODO remove container
 	return nil
 }
 

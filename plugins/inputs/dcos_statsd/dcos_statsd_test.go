@@ -147,16 +147,24 @@ func TestGather(t *testing.T) {
 	xyzconn := dialUDPPort(t, xyz.StatsdPort)
 	defer abcconn.Close()
 	defer xyzconn.Close()
-	abcconn.Write([]byte("foo:123|c"))
-	xyzconn.Write([]byte("foo:123|c"))
+
+	// Send each count ten times for a total of 1230
+	for i := 0; i < 10; i++ {
+		abcconn.Write([]byte("foo:123|c"))
+		xyzconn.Write([]byte("foo:123|c"))
+	}
 
 	err = acc.GatherError(ds.Gather)
 	assert.Nil(t, err)
 
-	acc.AssertContainsFields(t, "foo", map[string]interface{}{"value": int64(123)})
+	acc.AssertContainsFields(t, "foo", map[string]interface{}{"value": int64(1230)})
 	acc.AssertContainsTaggedFields(t, "foo",
-		map[string]interface{}{"value": int64(123)},
-		map[string]string{"container_id": "abc123"})
+		map[string]interface{}{"value": int64(1230)},
+		map[string]string{"container_id": "abc123", "metric_type": "counter"})
+	acc.AssertContainsTaggedFields(t, "foo",
+		map[string]interface{}{"value": int64(1230)},
+		map[string]string{"container_id": "xyz123", "metric_type": "counter"})
+
 }
 
 // startTestServer starts a server on the specified DCOSStatsd on a randomly
@@ -200,6 +208,8 @@ func assertResponseWas(t *testing.T, r *http.Response, err error, expected strin
 	assert.Equal(t, expected, string(body))
 }
 
+// parseContainer is a convenience method for getting a Container from an
+// http response
 func parseContainer(t *testing.T, body io.Reader) containers.Container {
 	var ctr containers.Container
 	decoder := json.NewDecoder(body)
