@@ -65,7 +65,7 @@ func (ds *DCOSStatsd) Start(acc telegraf.Accumulator) error {
 		}
 		// We fail early if something is up with the containers dir
 		// (eg bad permissions)
-		if err := ds.loadContainers(acc); err != nil {
+		if err := ds.loadContainers(); err != nil {
 			return err
 		}
 	} else {
@@ -118,8 +118,25 @@ func (ds *DCOSStatsd) GetContainer(cid string) (*containers.Container, bool) {
 // not defined, it wil attempt to start a server on a random port and the
 // default host. If this fails, it will error and the container will not be
 // added. If the operation was successful, it will return the container.
-func (ds *DCOSStatsd) AddContainer(c containers.Container) (*containers.Container, error) {
-	return nil, nil
+func (ds *DCOSStatsd) AddContainer(ctr containers.Container) (*containers.Container, error) {
+	ctr.Server = &statsd.Statsd{
+		Protocol:               "udp",
+		ServiceAddress:         fmt.Sprintf(":%d", ctr.StatsdPort),
+		ParseDataDogTags:       true,
+		AllowedPendingMessages: 10000,
+	}
+
+	// Statsd.Start discards its accumulator
+	var acc telegraf.Accumulator
+	if err := ctr.Server.Start(acc); err != nil {
+		log.Printf("E! Could not start server for container %s", ctr.Id)
+		return nil, err
+	}
+	log.Printf("I! Added container %s", ctr.Id)
+	ds.containers = append(ds.containers, ctr)
+
+	// TODO persist container to disk
+	return &ctr, nil
 }
 
 // Remove container will remove a container and stop any associated server. the
@@ -129,20 +146,26 @@ func (ds *DCOSStatsd) RemoveContainer(c containers.Container) error {
 }
 
 // loadContainers loads containers from disk
-func (ds *DCOSStatsd) loadContainers(acc telegraf.Accumulator) error {
+func (ds *DCOSStatsd) loadContainers() error {
 	files, err := ioutil.ReadDir(ds.ContainersDir)
 	if err != nil {
 		log.Printf("E! The specified containers dir was not available: %s", err)
 		return err
 	}
+
 	for _, fInfo := range files {
+		// No need for filepath.Join - this simple concat works on Windows
 		fPath := fmt.Sprintf("%s/%s", ds.ContainersDir, fInfo.Name())
+
+		// Attempt to open file
 		file, err := os.Open(fPath)
 		if err != nil {
 			log.Printf("E! The specified file %s could not be opened: %s", fPath, err)
 			continue
 		}
 		defer file.Close()
+
+		// Consume file as JSON
 		var ctr containers.Container
 		decoder := json.NewDecoder(file)
 		if err := decoder.Decode(&ctr); err != nil {
@@ -150,20 +173,12 @@ func (ds *DCOSStatsd) loadContainers(acc telegraf.Accumulator) error {
 			continue
 		}
 
-		ctr.Server = &statsd.Statsd{
-			Protocol:               "udp",
-			ServiceAddress:         fmt.Sprintf(":%d", ctr.StatsdPort),
-			ParseDataDogTags:       true,
-			AllowedPendingMessages: 10000,
-		}
-
-		err = ctr.Server.Start(acc)
-		if err != nil {
-			log.Printf("E! Could not start server for container %s", ctr.Id)
+		// Finally, add container to cache
+		if _, err := ds.AddContainer(ctr); err != nil {
+			log.Printf("E! Could not add container %s: %s", ctr.Id, err)
 			continue
 		}
 		log.Printf("I! Loaded container %s from disk", ctr.Id)
-		ds.containers = append(ds.containers, ctr)
 	}
 	return nil
 }
