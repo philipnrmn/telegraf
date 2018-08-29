@@ -5,24 +5,58 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/plugins/inputs/dcos_statsd/containers"
 	"github.com/influxdata/telegraf/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestStart(t *testing.T) {
-	ds := DCOSStatsd{}
-	// startTestServer runs a /health request test
-	addr := startTestServer(t, &ds)
-	defer ds.Stop()
+	t.Run("Server with no saved state", func(t *testing.T) {
+		ds := DCOSStatsd{containers: []containers.Container{}}
+		// startTestServer runs a /health request test
+		addr := startTestServer(t, &ds)
+		defer ds.Stop()
 
-	// Check that no containers were created
-	resp, err := http.Get(addr + "/containers")
-	assertResponseWas(t, resp, err, "[]")
+		// Check that no containers were created
+		resp, err := http.Get(addr + "/containers")
+		assertResponseWas(t, resp, err, "[]")
+	})
 
-	// TODO test that saved statsd servers are started
+	t.Run("Server with a single container saved", func(t *testing.T) {
+		// Create a temp dir:
+		dir, err := ioutil.TempDir("", "containers")
+		if err != nil {
+			assert.Fail(t, fmt.Sprintf("Could not create temp dir: %s", err))
+		}
+		defer os.RemoveAll(dir)
+
+		// Create JSON in memory:
+		ctrport := findFreePort()
+		ctrjson := fmt.Sprintf(
+			`{"container_id":"abc123","statsd_host":"127.0.0.1","statsd_port":%d}`,
+			ctrport)
+
+		// Write JSON to disk:
+		err = ioutil.WriteFile(dir+"/abc123", []byte(ctrjson), 0666)
+		if err != nil {
+			assert.Fail(t, fmt.Sprintf("Could not write container state: %s", err))
+		}
+
+		// Finally run DCOSStatsd.Start():
+		ds := DCOSStatsd{ContainersDir: dir}
+		addr := startTestServer(t, &ds)
+		defer ds.Stop()
+
+		// Ensure that container shows up in output:
+		resp, err := http.Get(addr + "/containers")
+		// encoding/json respects alphabetical order, so this is safe
+		assertResponseWas(t, resp, err, fmt.Sprintf("[%s]", ctrjson))
+	})
+
 }
 
 func TestStop(t *testing.T) {

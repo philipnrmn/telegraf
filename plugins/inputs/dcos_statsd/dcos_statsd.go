@@ -2,8 +2,12 @@ package dcos_statsd
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/influxdata/telegraf"
@@ -11,6 +15,7 @@ import (
 	"github.com/influxdata/telegraf/plugins/inputs"
 	"github.com/influxdata/telegraf/plugins/inputs/dcos_statsd/api"
 	"github.com/influxdata/telegraf/plugins/inputs/dcos_statsd/containers"
+	"github.com/influxdata/telegraf/plugins/inputs/statsd"
 )
 
 const sampleConfig = `
@@ -43,7 +48,7 @@ func (ds *DCOSStatsd) Description() string {
 }
 
 // Start is called when the service plugin is ready to start working
-func (ds *DCOSStatsd) Start(_ telegraf.Accumulator) error {
+func (ds *DCOSStatsd) Start(acc telegraf.Accumulator) error {
 	router := api.NewRouter(ds)
 	ds.apiServer = &http.Server{
 		Handler:      router,
@@ -52,15 +57,29 @@ func (ds *DCOSStatsd) Start(_ telegraf.Accumulator) error {
 		ReadTimeout:  ds.Timeout.Duration,
 	}
 
+	if ds.ContainersDir != "" {
+		// Check that dir exists
+		if _, err := os.Stat(ds.ContainersDir); os.IsNotExist(err) {
+			log.Printf("I! %s does not exist and will be created now", ds.ContainersDir)
+			os.MkdirAll(ds.ContainersDir, 0666)
+		}
+		// We fail early if something is up with the containers dir
+		// (eg bad permissions)
+		if err := ds.loadContainers(acc); err != nil {
+			return err
+		}
+	} else {
+		// We set ContainersDir in init(). If it's not set, it's either been
+		// explicitly unset, or we're inside a test
+		log.Println("I! No containers_dir was set; state will not persist")
+	}
+
 	go func() {
 		err := ds.apiServer.ListenAndServe()
 		log.Printf("I! dcos_statsd API server closed: %s", err)
 	}()
-
 	log.Printf("I! dcos_statsd API server listening on %s", ds.Listen)
 
-	// TODO load containers from disc
-	// TODO start servers
 	return nil
 }
 
@@ -84,7 +103,7 @@ func (ds *DCOSStatsd) Stop() {
 
 // ListContainers returns a list of known containers
 func (ds *DCOSStatsd) ListContainers() []containers.Container {
-	return []containers.Container{}
+	return ds.containers
 }
 
 // GetContainer returns a container from its ID, and whether it was successful
@@ -109,11 +128,52 @@ func (ds *DCOSStatsd) RemoveContainer(c containers.Container) error {
 	return nil
 }
 
+// loadContainers loads containers from disk
+func (ds *DCOSStatsd) loadContainers(acc telegraf.Accumulator) error {
+	files, err := ioutil.ReadDir(ds.ContainersDir)
+	if err != nil {
+		log.Printf("E! The specified containers dir was not available: %s", err)
+		return err
+	}
+	for _, fInfo := range files {
+		fPath := fmt.Sprintf("%s/%s", ds.ContainersDir, fInfo.Name())
+		file, err := os.Open(fPath)
+		if err != nil {
+			log.Printf("E! The specified file %s could not be opened: %s", fPath, err)
+			continue
+		}
+		defer file.Close()
+		var ctr containers.Container
+		decoder := json.NewDecoder(file)
+		if err := decoder.Decode(&ctr); err != nil {
+			log.Printf("E! The container file %s could not be decoded: %s", fPath, err)
+			continue
+		}
+
+		ctr.Server = &statsd.Statsd{
+			Protocol:               "udp",
+			ServiceAddress:         fmt.Sprintf(":%d", ctr.StatsdPort),
+			ParseDataDogTags:       true,
+			AllowedPendingMessages: 10000,
+		}
+
+		err = ctr.Server.Start(acc)
+		if err != nil {
+			log.Printf("E! Could not start server for container %s", ctr.Id)
+			continue
+		}
+		log.Printf("I! Loaded container %s from disk", ctr.Id)
+		ds.containers = append(ds.containers, ctr)
+	}
+	return nil
+}
+
 func init() {
 	inputs.Add("dcos_statsd", func() telegraf.Input {
 		return &DCOSStatsd{
 			ContainersDir: "/run/dcos/telegraf/dcos_statsd/containers",
 			Timeout:       internal.Duration{Duration: 10 * time.Second},
+			containers:    []containers.Container{},
 		}
 	})
 }
