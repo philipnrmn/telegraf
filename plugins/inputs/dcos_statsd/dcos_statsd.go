@@ -185,8 +185,21 @@ func (ds *DCOSStatsd) AddContainer(ctr containers.Container) (*containers.Contai
 		ctr.StatsdPort = port
 	}
 
+	// Write container definition to disk
+	if ds.ContainersDir != "" {
+		data, err := json.Marshal(ctr)
+		if err != nil {
+			log.Printf("E! Could not marshal container %s to json: %s", ctr.Id, err)
+			return nil, err
+		}
+		err = ioutil.WriteFile(ds.ContainersDir+"/"+ctr.Id, data, 0666)
+		if err != nil {
+			log.Printf("Could not write container %s to disk: %s", ctr.Id, err)
+			return nil, err
+		}
+	}
+
 	ds.containers[ctr.Id] = ctr
-	// TODO persist container to disk
 	return &ctr, nil
 }
 

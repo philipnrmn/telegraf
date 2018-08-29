@@ -101,7 +101,11 @@ func TestStop(t *testing.T) {
 
 func TestGather(t *testing.T) {
 	var acc testutil.Accumulator
-	ds := DCOSStatsd{StatsdHost: "127.0.0.1"}
+	dir, err := ioutil.TempDir("", "containers")
+	if err != nil {
+		assert.Fail(t, fmt.Sprintf("Could not create temp dir: %s", err))
+	}
+	ds := DCOSStatsd{StatsdHost: "127.0.0.1", ContainersDir: dir}
 
 	addr := startTestServer(t, &ds)
 	defer ds.Stop()
@@ -165,6 +169,11 @@ func TestGather(t *testing.T) {
 	acc.AssertContainsTaggedFields(t, "foo",
 		map[string]interface{}{"value": int64(1230)},
 		map[string]string{"container_id": "xyz123", "metric_type": "counter"})
+
+	t.Log("Containers are persisted to disk")
+	files, err := ioutil.ReadDir(ds.ContainersDir)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(files))
 
 	t.Log("Removing a container")
 	_, err = httpDelete(t, addr+"/container/abc123")
