@@ -230,7 +230,7 @@ func startTestServer(t *testing.T, ds *DCOSStatsd) string {
 	return addr
 }
 
-// waitFor waits one second for a condition to be true
+// waitFor waits five seconds for a condition to be true
 func waitFor(cond func() bool) error {
 	done := make(chan bool)
 
@@ -247,7 +247,7 @@ func waitFor(cond func() bool) error {
 	select {
 	case <-done:
 		return nil
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		return errors.New("timed out waiting for condition")
 	}
 }
