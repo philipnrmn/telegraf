@@ -250,7 +250,6 @@ func waitFor(cond func() bool) error {
 	case <-time.After(time.Second):
 		return errors.New("timed out waiting for condition")
 	}
-	return nil
 }
 
 // findFreePort momentarily listens on :0, then closes the connection and
