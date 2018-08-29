@@ -2,7 +2,9 @@ package dcos_statsd
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -17,7 +19,7 @@ import (
 
 func TestStart(t *testing.T) {
 	t.Run("Server with no saved state", func(t *testing.T) {
-		ds := DCOSStatsd{containers: []containers.Container{}}
+		ds := DCOSStatsd{}
 		// startTestServer runs a /health request test
 		addr := startTestServer(t, &ds)
 		defer ds.Stop()
@@ -87,22 +89,69 @@ func TestStop(t *testing.T) {
 		assert.Nil(t, resp)
 
 		// Test that the statsd server has stopped by listening on the same port
-		t.Log("Dialing 127.0.0.1:", port)
 		statsdAddr, _ := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", port))
 		ln, err := net.ListenUDP("udp", statsdAddr)
 		assert.Nil(t, err)
-		ln.Close()
+		if err == nil { // this test is necesasry to avoid segfaults
+			ln.Close()
+		}
 	})
 }
 
 func TestGather(t *testing.T) {
 	var acc testutil.Accumulator
-	ds := DCOSStatsd{}
+	ds := DCOSStatsd{StatsdHost: "127.0.0.1"}
 
-	err := acc.GatherError(ds.Gather)
+	addr := startTestServer(t, &ds)
+	defer ds.Stop()
+
+	// Test that the command API works as expected:
+
+	t.Log("A container on a random port")
+	abcjson := `{"container_id": "abc123"}`
+	resp, err := http.Post(addr+"/container", "application/json", bytes.NewBuffer([]byte(abcjson)))
 	assert.Nil(t, err)
+	abc := parseContainer(t, resp.Body)
+	assert.Equal(t, "abc123", abc.Id)
+	assert.NotEmpty(t, abc.StatsdHost)
+	assert.NotEmpty(t, abc.StatsdPort)
 
-	// TODO test that statsd metrics are passed in and tagged
+	t.Log("A container on a known port")
+	xyzport := findFreePort()
+	xyzjson := fmt.Sprintf(`{"container_id":"xyz123","statsd_host":"127.0.0.1","statsd_port":%d}`, xyzport)
+	resp, err = http.Post(addr+"/container", "application/json", bytes.NewBuffer([]byte(xyzjson)))
+	assert.Nil(t, err)
+	xyz := parseContainer(t, resp.Body)
+	assert.Equal(t, "xyz123", xyz.Id)
+	assert.Equal(t, "127.0.0.1", xyz.StatsdHost)
+	assert.Equal(t, xyzport, xyz.StatsdPort)
+
+	t.Log("A container with an ID that already exists")
+	resp, err = http.Post(addr+"/container", "application/json", bytes.NewBuffer([]byte(abcjson)))
+	assert.Nil(t, err)
+	abc2 := parseContainer(t, resp.Body)
+	// Should have been redirected to the original abc123
+	assert.Equal(t, abc, abc2)
+	// no new containers should have been created
+	assert.Equal(t, 2, len(ds.containers))
+
+	t.Log("A container on an occupied port")
+	qqqjson := fmt.Sprintf(`{"container_id":"qqq123","statsd_host":"127.0.0.1","statsd_port":%d}`, xyzport)
+	_, err = http.Post(addr+"/container", "application/json", bytes.NewBuffer([]byte(qqqjson)))
+	assert.Nil(t, err)
+	// no new containers should have been created
+	assert.Equal(t, 2, len(ds.containers))
+
+	t.Log("Sending statsd to containers")
+	abcconn := dialUDPPort(t, abc.StatsdPort)
+	xyzconn := dialUDPPort(t, xyz.StatsdPort)
+	defer abcconn.Close()
+	defer xyzconn.Close()
+	abcconn.Write([]byte("foo:123|c"))
+	xyzconn.Write([]byte("foo:123|c"))
+
+	err = acc.GatherError(ds.Gather)
+	assert.Nil(t, err)
 }
 
 // startTestServer starts a server on the specified DCOSStatsd on a randomly
@@ -144,4 +193,27 @@ func assertResponseWas(t *testing.T, r *http.Response, err error, expected strin
 	body, err := ioutil.ReadAll(r.Body)
 	assert.Nil(t, err)
 	assert.Equal(t, expected, string(body))
+}
+
+func parseContainer(t *testing.T, body io.Reader) containers.Container {
+	var ctr containers.Container
+	decoder := json.NewDecoder(body)
+	if err := decoder.Decode(&ctr); err != nil {
+		assert.Fail(t, "JSON could not be decoded to container: %q", err)
+	}
+	return ctr
+}
+
+// dialUDPPort dials localhost:port and returns the connection
+func dialUDPPort(t *testing.T, port int) net.Conn {
+	straddr := fmt.Sprintf(":%d", port)
+	addr, err := net.ResolveUDPAddr("udp", straddr)
+	if err != nil {
+		assert.Fail(t, "Could not resolve address ", straddr)
+	}
+	conn, err := net.DialUDP("udp", nil, addr)
+	if err != nil {
+		assert.Fail(t, "Could not dial UDP ", straddr)
+	}
+	return conn
 }

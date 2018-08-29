@@ -3,11 +3,15 @@ package dcos_statsd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/influxdata/telegraf"
@@ -25,6 +29,8 @@ listen = ":8888"
 containers_dir = "/run/dcos/telegraf/dcos_statsd/containers"
 ## The period after which requests to the API should time out
 timeout = "15s"
+## The hostname or IP address on which to host statsd servers
+statsd_host = "198.51.100.1"
 `
 
 type DCOSStatsd struct {
@@ -33,8 +39,9 @@ type DCOSStatsd struct {
 	// ContainersDir is the directory in which container information is stored
 	ContainersDir string
 	Timeout       internal.Duration
+	StatsdHost    string
 	apiServer     *http.Server
-	containers    []containers.Container
+	containers    map[string]containers.Container
 }
 
 // SampleConfig returns the default configuration
@@ -49,6 +56,11 @@ func (ds *DCOSStatsd) Description() string {
 
 // Start is called when the service plugin is ready to start working
 func (ds *DCOSStatsd) Start(acc telegraf.Accumulator) error {
+	// if ds.containers was not properly initiated, we can have issues with
+	// assignment to null map
+	if ds.containers == nil {
+		ds.containers = map[string]containers.Container{}
+	}
 	router := api.NewRouter(ds)
 	ds.apiServer = &http.Server{
 		Handler:      router,
@@ -106,12 +118,17 @@ func (ds *DCOSStatsd) Stop() {
 
 // ListContainers returns a list of known containers
 func (ds *DCOSStatsd) ListContainers() []containers.Container {
-	return ds.containers
+	ctrs := []containers.Container{}
+	for _, c := range ds.containers {
+		ctrs = append(ctrs, c)
+	}
+	return ctrs
 }
 
 // GetContainer returns a container from its ID, and whether it was successful
 func (ds *DCOSStatsd) GetContainer(cid string) (*containers.Container, bool) {
-	return nil, false
+	ctr, ok := ds.containers[cid]
+	return &ctr, ok
 }
 
 // AddContainer takes a container definition and adds a container, if one does
@@ -129,6 +146,14 @@ func (ds *DCOSStatsd) AddContainer(ctr containers.Container) (*containers.Contai
 		AllowedPendingMessages: 10000,
 	}
 
+	// statsd will crash the whole Telegraf process if it attempts to listen on
+	// an occupied port. We therefore check ports in advance if specified by the
+	// user.
+	if ctr.StatsdPort != 0 && !checkPort(ctr.StatsdPort) {
+		log.Printf("E! Attempted to start a server on an occupied port: %d", ctr.StatsdPort)
+		return nil, fmt.Errorf("could not start server on occupied port %d", ctr.StatsdPort)
+	}
+
 	// Statsd.Start discards its accumulator
 	var acc telegraf.Accumulator
 	if err := ctr.Server.Start(acc); err != nil {
@@ -136,8 +161,21 @@ func (ds *DCOSStatsd) AddContainer(ctr containers.Container) (*containers.Contai
 		return nil, err
 	}
 	log.Printf("I! Added container %s", ctr.Id)
-	ds.containers = append(ds.containers, ctr)
 
+	if ctr.StatsdHost == "" {
+		ctr.StatsdHost = ds.StatsdHost
+	}
+
+	if ctr.StatsdPort == 0 {
+		port, err := getStatsdServerPort(ctr.Server)
+		if err != nil {
+			log.Printf("E! Could not find port for container %s: %s", ctr.Id, err)
+			return nil, err
+		}
+		ctr.StatsdPort = port
+	}
+
+	ds.containers[ctr.Id] = ctr
 	// TODO persist container to disk
 	return &ctr, nil
 }
@@ -186,12 +224,58 @@ func (ds *DCOSStatsd) loadContainers() error {
 	return nil
 }
 
+// getStatsdServerPort waits for the statsd server to start up, then returns
+// the port on which it is running, or times out.
+func getStatsdServerPort(s *statsd.Statsd) (int, error) {
+	done := make(chan bool)
+	go func() {
+		for {
+			if s.UDPlistener != nil {
+				done <- true
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+
+	select {
+	case <-time.After(time.Second):
+		return 0, errors.New("timed out waiting for statsd server to start")
+	case <-done:
+		break
+	}
+
+	addr := s.UDPlistener.LocalAddr().String()
+	su, err := url.Parse("http://" + addr)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return strconv.Atoi(su.Port())
+}
+
+// checkPort checks that a port is free.
+// statsd.listenUDP will throw Fatal if it attempts to listen on a port which
+// was already bound. As we cannot guarantee that a port is always free, since
+// other processes are running on our machines, we need to check ahead of time.
+func checkPort(port int) bool {
+	addr, _ := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", port))
+	ln, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		return false
+	}
+	ln.Close()
+	return true
+}
+
 func init() {
 	inputs.Add("dcos_statsd", func() telegraf.Input {
 		return &DCOSStatsd{
 			ContainersDir: "/run/dcos/telegraf/dcos_statsd/containers",
 			Timeout:       internal.Duration{Duration: 10 * time.Second},
-			containers:    []containers.Container{},
+			StatsdHost:    "198.51.100.1",
+			containers:    map[string]containers.Container{},
 		}
 	})
 }
