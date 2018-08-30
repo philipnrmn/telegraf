@@ -91,10 +91,6 @@ func (d *DCOSMetrics) Write(metrics []telegraf.Metric) error {
 	return nil
 }
 
-func init() {
-	outputs.Add("dcos_metrics", func() telegraf.Output { return &DCOSMetrics{} })
-}
-
 // producerConfig returns a httpProducer.Config configured from d.
 func (d *DCOSMetrics) producerConfig() (httpProducer.Config, error) {
 	var (
@@ -137,4 +133,8 @@ func splitHostPort(hostPort string) (string, int, error) {
 	}
 
 	return host, port, nil
+}
+
+func init() {
+	outputs.Add("dcos_metrics", func() telegraf.Output { return &DCOSMetrics{} })
 }
