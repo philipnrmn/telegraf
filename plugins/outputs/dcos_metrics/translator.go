@@ -90,10 +90,6 @@ func (t *producerTranslator) containerMetricsMessage(m telegraf.Metric) producer
 		Datapoints: datapointsFromMetric(m, map[string]string{
 			"container_id":  containerID,
 			"executor_name": executorName,
-			// TODO(branden): These are set by createContainerDatapoints() in dcos-metrics, but I'm not sure where to get these values. Should these be provided by a processor plugin?
-			//source:       container.Source,
-			//frameworkID:  container.FrameworkID,
-			//executorID:   container.ExecutorID,
 		}),
 		Dimensions: producers.Dimensions{
 			MesosID:       t.MesosID,
