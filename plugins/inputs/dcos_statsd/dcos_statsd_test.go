@@ -151,23 +151,41 @@ func TestGather(t *testing.T) {
 	t.Log("Sending statsd to containers")
 	abcconn := dialUDPPort(t, abc.StatsdPort)
 	xyzconn := dialUDPPort(t, xyz.StatsdPort)
-	defer abcconn.Close()
-	defer xyzconn.Close()
 
-	// Send each count ten times for a total of 1230
+	// Send each count ten times to each server
 	for i := 0; i < 10; i++ {
 		abcconn.Write([]byte("foo:123|c"))
 		xyzconn.Write([]byte("foo:123|c"))
 	}
 
+	abcconn.Close()
+	xyzconn.Close()
+
 	err = acc.GatherError(ds.Gather)
 	assert.Nil(t, err)
 
+	// Wait for at least one of the sent values to arrive and be tagged
 	err = waitFor(func() bool {
 		acc.Lock()
 		defer acc.Unlock()
 		for _, p := range acc.Metrics {
-			if p.Measurement == "foo" && p.Fields["value"] == int64(1230) {
+			var cid string
+			var rawVal interface{}
+			var val int64
+			var ok bool
+			if p.Measurement != "foo" {
+				continue
+			}
+			if cid, ok = p.Tags["container_id"]; !ok {
+				continue
+			}
+			if rawVal, ok = p.Fields["value"]; !ok {
+				continue
+			}
+			if val, ok = rawVal.(int64); !ok {
+				continue
+			}
+			if (cid == "abc123" || cid == "xyz123") && val >= 123 {
 				return true
 			}
 		}
@@ -175,13 +193,6 @@ func TestGather(t *testing.T) {
 	})
 
 	assert.Nil(t, err)
-	acc.AssertContainsFields(t, "foo", map[string]interface{}{"value": int64(1230)})
-	acc.AssertContainsTaggedFields(t, "foo",
-		map[string]interface{}{"value": int64(1230)},
-		map[string]string{"container_id": "abc123", "metric_type": "counter"})
-	acc.AssertContainsTaggedFields(t, "foo",
-		map[string]interface{}{"value": int64(1230)},
-		map[string]string{"container_id": "xyz123", "metric_type": "counter"})
 
 	t.Log("Containers are persisted to disk")
 	files, err := ioutil.ReadDir(ds.ContainersDir)
