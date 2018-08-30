@@ -69,10 +69,13 @@ func (d *DCOSMetrics) Start() error {
 	return nil
 }
 
+// dcos-metrics producers don't offer a mechanism to stop them, and there's nothing to clean up.
 func (d *DCOSMetrics) Stop() {}
 
+// This output doesn't need to connect to anything.
 func (d *DCOSMetrics) Connect() error { return nil }
 
+// This output doesn't create any connections, so there's nothing to close.
 func (d *DCOSMetrics) Close() error { return nil }
 
 func (d *DCOSMetrics) Write(metrics []telegraf.Metric) error {
