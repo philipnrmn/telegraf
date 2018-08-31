@@ -110,6 +110,8 @@ func (t *producerTranslator) appMetricsMessage(m telegraf.Metric) producers.Metr
 	containerID := getAndDelete(tags, "container_id")
 	frameworkName := getAndDelete(tags, "service_name") // DC/OS services are Mesos frameworks.
 	taskName := getAndDelete(tags, "task_name")
+	// We don't use metric_type.
+	delete(tags, "metric_type")
 
 	return producers.MetricsMessage{
 		Name:       producers.AppMetricPrefix,
