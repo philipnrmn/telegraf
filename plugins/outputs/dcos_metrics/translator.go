@@ -3,6 +3,7 @@ package dcos_metrics
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -450,20 +451,28 @@ func (t *producerTranslator) systemMetricsMessage(m telegraf.Metric) producers.M
 }
 
 // datapointsFromMetric returns a []producers.Datapoint for the fields in m, with tags set on all Datapoints.
+// Datapoints are sorted by name for stability.
 func datapointsFromMetric(m telegraf.Metric, tags map[string]string) []producers.Datapoint {
 	fields := m.Fields()
 	timestamp := timestampFromMetric(m)
 
-	datapoints := make([]producers.Datapoint, len(fields))
+	// Sort datapoints by name for stability.
+	fns := make([]string, len(fields))
 	i := 0
-	for fn, fv := range fields {
+	for fn := range fields {
+		fns[i] = fn
+		i += 1
+	}
+	sort.Strings(fns)
+
+	datapoints := make([]producers.Datapoint, len(fns))
+	for i, fn := range fns {
 		datapoints[i] = producers.Datapoint{
 			Name:      fn,
-			Value:     fv,
+			Value:     fields[fn],
 			Timestamp: timestamp,
 			Tags:      tags,
 		}
-		i += 1
 	}
 
 	return datapoints
